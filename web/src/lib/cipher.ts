@@ -58,12 +58,13 @@ export interface GameState {
   initialRevealedPositions: Set<number>; // Oyun başında açılan pozisyonlar
   mistakes: number;
   maxMistakes: number;
-  score: number;
   timeLimit: number;
   startTime: number;
   isGameOver: boolean;
   isWon: boolean;
   difficulty: 'easy' | 'medium' | 'hard';
+  hintsUsed: number;
+  maxHints: number;
 }
 
 export interface Sentence {
@@ -326,12 +327,13 @@ export function initializeGame(difficulty: 'easy' | 'medium' | 'hard' = 'easy'):
     initialRevealedPositions: initialRevealedPositions,
     mistakes: 0,
     maxMistakes: 3,
-    score: 0,
     timeLimit: difficultySettings.timeLimit,
     startTime: Date.now(),
     isGameOver: false,
     isWon: false,
     difficulty,
+    hintsUsed: 0,
+    maxHints: difficultySettings.hintCount,
   };
 }
 
@@ -371,8 +373,6 @@ export function makeGuess(
     // Correct guess - add to user revealed positions
     newState.userRevealedPositions.add(targetIndex);
     
-    newState.score += 10; // Base score for correct guess
-    
     // Check if all letters are revealed (both initial and user revealed)
     const allRevealedLetters = new Set([...newState.revealedLetters]);
     // Add letters from user revealed positions
@@ -387,16 +387,12 @@ export function makeGuess(
     if (allLettersRevealed) {
       newState.isWon = true;
       newState.isGameOver = true;
-      // Bonus score for completing the game
-      const timeBonus = Math.max(0, newState.timeLimit - Math.floor((Date.now() - newState.startTime) / 1000));
-      newState.score += timeBonus * 2;
     }
     
     return { success: true, newState };
   } else {
     // Wrong guess
     newState.mistakes += 1;
-    newState.score = Math.max(0, newState.score - 5); // Penalty for wrong guess
     
     if (newState.mistakes >= newState.maxMistakes) {
       newState.isGameOver = true;
@@ -414,6 +410,81 @@ export function makeGuess(
 export function getRemainingTime(gameState: GameState): number {
   const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
   return Math.max(0, gameState.timeLimit - elapsed);
+}
+
+/**
+ * Use hint to reveal letters based on difficulty level
+ */
+export function useHint(gameState: GameState): { success: boolean; revealedPositions?: number[]; message: string } {
+  if (gameState.hintsUsed >= gameState.maxHints) {
+    return { success: false, message: 'Tüm ipuçları kullanıldı!' };
+  }
+
+  // Get all words and their revealed positions
+  const words = gameState.originalSentence.split(' ').filter(word => word.trim() !== '');
+  const availableWords: { word: string; availablePositions: number[] }[] = [];
+
+  let globalPositionIndex = 0;
+  words.forEach(word => {
+    const wordLetters = word.split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+    const availablePositions: number[] = [];
+    
+    for (let i = 0; i < wordLetters.length; i++) {
+      const globalPos = globalPositionIndex + i;
+      if (!gameState.initialRevealedPositions.has(globalPos) && !gameState.userRevealedPositions.has(globalPos)) {
+        availablePositions.push(globalPos);
+      }
+    }
+    
+    if (availablePositions.length > 0) {
+      availableWords.push({ word, availablePositions });
+    }
+    
+    globalPositionIndex += wordLetters.length;
+  });
+
+  if (availableWords.length === 0) {
+    return { success: false, message: 'Açılacak harf kalmadı!' };
+  }
+
+  // Select random word
+  const randomWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+  
+  // Select one random position from the chosen word
+  const shuffledPositions = [...randomWord.availablePositions].sort(() => Math.random() - 0.5);
+  const selectedPosition = shuffledPositions[0];
+  
+  let revealedPositions: number[];
+  
+  if (gameState.difficulty === 'easy') {
+    // Easy: Reveal all instances of the same letter
+    const allLetters = normalizeForProcessing(gameState.originalSentence)
+      .split('')
+      .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+    
+    const selectedLetter = allLetters[selectedPosition];
+    
+    // Find all positions where this letter appears (that are not already revealed)
+    const allPositionsWithSameLetter: number[] = [];
+    for (let i = 0; i < allLetters.length; i++) {
+      if (allLetters[i] === selectedLetter && 
+          !gameState.initialRevealedPositions.has(i) && 
+          !gameState.userRevealedPositions.has(i)) {
+        allPositionsWithSameLetter.push(i);
+      }
+    }
+    
+    revealedPositions = allPositionsWithSameLetter;
+  } else {
+    // Medium/Hard: Reveal only the selected position
+    revealedPositions = [selectedPosition];
+  }
+
+  return { 
+    success: true, 
+    revealedPositions: revealedPositions, 
+    message: '' 
+  };
 }
 
 /**
