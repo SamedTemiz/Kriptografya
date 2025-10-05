@@ -57,7 +57,7 @@ function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGue
   );
 }
 
-export default function CryptographyGame({ initialDifficulty = 'easy' }: CryptographyGameProps) {
+export default function CryptographyGame({ initialDifficulty = 'medium' }: CryptographyGameProps) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(initialDifficulty);
   const [selectedLetterIndex, setSelectedLetterIndex] = useState<number | null>(null);
