@@ -81,5 +81,23 @@
       "useEdgePositions": false,
       "priorityOrder": ["random"]
     }
+  },
+  "progressiveSystem": {
+    "enabled": true,
+    "sentenceRanges": {
+      "1-5": { "easy": 0.7, "medium": 0.3, "hard": 0.0 },
+      "6-15": { "easy": 0.5, "medium": 0.4, "hard": 0.1 },
+      "16-30": { "easy": 0.3, "medium": 0.5, "hard": 0.2 },
+      "31+": { "easy": 0.2, "medium": 0.4, "hard": 0.4 }
+    }
+  },
+  "hintSystem": {
+    "adaptive": true,
+    "strongHint": "Tüm aynı harfleri açar",
+    "weakHint": "Sadece seçilen harfi açar",
+    "conditions": {
+      "strong": ["easy difficulty", "sentence <= 10", "success rate < 50%"],
+      "weak": ["medium/hard difficulty", "sentence > 10", "success rate >= 50%"]
+    }
   }
 }

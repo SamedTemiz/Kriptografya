@@ -67,10 +67,26 @@ export interface GameState {
   maxHints: number;
 }
 
+export interface GameResult {
+  sentenceNumber: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  isWon: boolean;
+  mistakes: number;
+  hintsUsed: number;
+  timeSpent: number;
+}
+
 export interface Sentence {
   text: string;
   difficulty: 'easy' | 'medium' | 'hard';
   category: string;
+}
+
+export interface ProgressiveGameState {
+  currentSentenceNumber: number;
+  performanceHistory: GameResult[];
+  currentDifficulty: 'easy' | 'medium' | 'hard';
+  adaptiveMode: boolean;
 }
 
 // Turkish sentences database
@@ -350,39 +366,30 @@ export function makeGuess(
     return { success: false, newState: gameState };
   }
 
-  // Normalize for processing
-  const processedLetter = normalizeForProcessing(letter);
+  // Keep user input as-is (no normalization for Turkish letters) - use Turkish locale
+  const userLetter = letter.toLocaleUpperCase('tr-TR');
   const newState = { 
     ...gameState,
     revealedLetters: new Set(gameState.revealedLetters), // Yeni Set oluştur
     userRevealedPositions: new Set(gameState.userRevealedPositions) // Yeni Set oluştur
   };
   
-  // Get all letters from the original sentence (without spaces) and normalize for processing
-  const allLetters = normalizeForProcessing(gameState.originalSentence)
+  // Get all letters from the original sentence (without spaces) - use Turkish locale
+  const allLetters = gameState.originalSentence
+    .toLocaleUpperCase('tr-TR')
     .split('')
     .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
   
-  // Check if the letter at the target position matches
+  // Check if the letter at the target position matches (exact match for Turkish letters)
   const letterAtPosition = allLetters[targetIndex];
-  // Compare both original and normalized versions
-  const isCorrect = letterAtPosition === processedLetter || 
-                   normalizeForProcessing(letterAtPosition) === processedLetter;
+  const isCorrect = letterAtPosition === userLetter;
   
   if (isCorrect) {
     // Correct guess - add to user revealed positions
     newState.userRevealedPositions.add(targetIndex);
     
     // Check if all letters are revealed (both initial and user revealed)
-    const allRevealedLetters = new Set([...newState.revealedLetters]);
-    // Add letters from user revealed positions
-    newState.userRevealedPositions.forEach(pos => {
-      if (pos < allLetters.length) {
-        allRevealedLetters.add(allLetters[pos]);
-      }
-    });
-    
-    const allLettersRevealed = allLetters.every(char => allRevealedLetters.has(char));
+    const allLettersRevealed = checkGameCompletion(newState, []);
     
     if (allLettersRevealed) {
       newState.isWon = true;
@@ -415,7 +422,10 @@ export function getRemainingTime(gameState: GameState): number {
 /**
  * Use hint to reveal letters based on difficulty level
  */
-export function useHint(gameState: GameState): { success: boolean; revealedPositions?: number[]; message: string } {
+export function useHint(
+  gameState: GameState, 
+  progressiveState?: ProgressiveGameState
+): { success: boolean; revealedPositions?: number[]; message: string; isGameCompleted?: boolean } {
   if (gameState.hintsUsed >= gameState.maxHints) {
     return { success: false, message: 'Tüm ipuçları kullanıldı!' };
   }
@@ -456,8 +466,11 @@ export function useHint(gameState: GameState): { success: boolean; revealedPosit
   
   let revealedPositions: number[];
   
-  if (gameState.difficulty === 'easy') {
-    // Easy: Reveal all instances of the same letter
+  // Determine hint strength based on difficulty and progressive system
+  const hintStrength = getHintStrength(gameState.difficulty, progressiveState);
+  
+  if (hintStrength === 'strong') {
+    // Strong hint: Reveal all instances of the same letter (like old easy mode)
     const allLetters = normalizeForProcessing(gameState.originalSentence)
       .split('')
       .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
@@ -476,14 +489,164 @@ export function useHint(gameState: GameState): { success: boolean; revealedPosit
     
     revealedPositions = allPositionsWithSameLetter;
   } else {
-    // Medium/Hard: Reveal only the selected position
+    // Weak hint: Reveal only the selected position (like old medium/hard mode)
     revealedPositions = [selectedPosition];
   }
 
   return { 
     success: true, 
     revealedPositions: revealedPositions, 
-    message: '' 
+    message: '',
+    isGameCompleted: checkGameCompletion(gameState, revealedPositions)
+  };
+}
+
+/**
+ * Check if game is completed after revealing new positions
+ */
+function checkGameCompletion(
+  gameState: GameState, 
+  newRevealedPositions: number[]
+): boolean {
+  // Get all letters from the sentence - use Turkish locale
+  const allLetters = gameState.originalSentence
+    .toLocaleUpperCase('tr-TR')
+    .split('')
+    .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+  
+  // Combine all revealed positions (initial + user + new from hint)
+  const allRevealedPositions = new Set([
+    ...gameState.initialRevealedPositions,
+    ...gameState.userRevealedPositions,
+    ...newRevealedPositions
+  ]);
+  
+  // Check if all positions are revealed
+  return allLetters.every((_, index) => allRevealedPositions.has(index));
+}
+
+/**
+ * Determine hint strength based on difficulty and progressive system
+ */
+function getHintStrength(
+  difficulty: 'easy' | 'medium' | 'hard',
+  progressiveState?: ProgressiveGameState
+): 'strong' | 'weak' {
+  // Base strength from difficulty
+  if (difficulty === 'easy') {
+    return 'strong';
+  }
+  
+  // For medium/hard, consider progressive system
+  if (progressiveState) {
+    const sentenceNumber = progressiveState.currentSentenceNumber;
+    const performanceHistory = progressiveState.performanceHistory;
+    
+    // If player is struggling (low success rate), give stronger hints
+    if (performanceHistory.length >= 3) {
+      const last3Games = performanceHistory.slice(-3);
+      const successRate = last3Games.filter((game: GameResult) => game.isWon).length / last3Games.length;
+      
+      if (successRate < 0.5) {
+        return 'strong'; // Player struggling, give stronger hints
+      }
+    }
+    
+    // Early in the game (first 10 sentences), give stronger hints
+    if (sentenceNumber <= 10) {
+      return 'strong';
+    }
+  }
+  
+  // Default to weak hint for medium/hard
+  return 'weak';
+}
+
+/**
+ * Calculate next difficulty based on sentence number and performance
+ */
+export function calculateNextDifficulty(
+  sentenceNumber: number,
+  recentPerformance: GameResult[]
+): 'easy' | 'medium' | 'hard' {
+  // Get last 5 games performance
+  const last5Games = recentPerformance.slice(-5);
+  
+  if (last5Games.length === 0) {
+    // First game - start with easy
+    return 'easy';
+  }
+  
+  // Calculate success rate
+  const successRate = last5Games.filter(game => game.isWon).length / last5Games.length;
+  const averageMistakes = last5Games.reduce((sum, game) => sum + game.mistakes, 0) / last5Games.length;
+  
+  // Progressive difficulty based on sentence number
+  if (sentenceNumber <= 5) {
+    // First 5 sentences: 70% easy, 30% medium
+    return Math.random() < 0.7 ? 'easy' : 'medium';
+  } else if (sentenceNumber <= 15) {
+    // Sentences 6-15: 50% easy, 40% medium, 10% hard
+    const rand = Math.random();
+    if (rand < 0.5) return 'easy';
+    if (rand < 0.9) return 'medium';
+    return 'hard';
+  } else if (sentenceNumber <= 30) {
+    // Sentences 16-30: 30% easy, 50% medium, 20% hard
+    const rand = Math.random();
+    if (rand < 0.3) return 'easy';
+    if (rand < 0.8) return 'medium';
+    return 'hard';
+  } else {
+    // Sentences 31+: 20% easy, 40% medium, 40% hard
+    const rand = Math.random();
+    if (rand < 0.2) return 'easy';
+    if (rand < 0.6) return 'medium';
+    return 'hard';
+  }
+}
+
+/**
+ * Initialize progressive game state
+ */
+export function initializeProgressiveGame(): ProgressiveGameState {
+  return {
+    currentSentenceNumber: 1,
+    performanceHistory: [],
+    currentDifficulty: 'easy',
+    adaptiveMode: true
+  };
+}
+
+/**
+ * Get next sentence with adaptive difficulty
+ */
+export function getNextProgressiveSentence(progressiveState: ProgressiveGameState): Sentence {
+  const nextDifficulty = calculateNextDifficulty(
+    progressiveState.currentSentenceNumber,
+    progressiveState.performanceHistory
+  );
+  
+  return getRandomSentence(nextDifficulty);
+}
+
+/**
+ * Record game result and update progressive state
+ */
+export function recordGameResult(
+  progressiveState: ProgressiveGameState,
+  gameResult: GameResult
+): ProgressiveGameState {
+  const newPerformanceHistory = [...progressiveState.performanceHistory, gameResult];
+  
+  return {
+    ...progressiveState,
+    currentSentenceNumber: progressiveState.currentSentenceNumber + 1,
+    performanceHistory: newPerformanceHistory,
+    currentDifficulty: calculateNextDifficulty(
+      progressiveState.currentSentenceNumber + 1,
+      newPerformanceHistory
+    )
   };
 }
 

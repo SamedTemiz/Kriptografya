@@ -8,11 +8,16 @@ import {
   getRemainingTime, 
   formatTime,
   useHint,
-  type Sentence 
+  type Sentence,
+  type ProgressiveGameState,
+  type GameResult,
+  initializeProgressiveGame,
+  getNextProgressiveSentence,
+  recordGameResult
 } from '@/lib/cipher';
 
 interface CryptographyGameProps {
-  initialDifficulty?: 'easy' | 'medium' | 'hard';
+  // Progressive difficulty system - no manual difficulty selection
 }
 
 interface LetterBoxProps {
@@ -61,30 +66,94 @@ function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGue
   );
 }
 
-export default function CryptographyGame({ initialDifficulty = 'medium' }: CryptographyGameProps) {
+export default function CryptographyGame() {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(initialDifficulty);
+  const [progressiveState, setProgressiveState] = useState<ProgressiveGameState>(initializeProgressiveGame());
   const [selectedLetterIndex, setSelectedLetterIndex] = useState<number | null>(null);
   const [currentGuess, setCurrentGuess] = useState('');
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [wrongGuessIndex, setWrongGuessIndex] = useState<number | null>(null);
 
-  // Initialize game
+  // Initialize game with progressive difficulty
   const startNewGame = useCallback(() => {
-    const newGame = initializeGame(difficulty);
+    const nextSentence = getNextProgressiveSentence(progressiveState);
+    const newGame = initializeGame(nextSentence.difficulty);
     setGameState(newGame);
     setSelectedLetterIndex(null);
     setCurrentGuess('');
     setMessage('');
     setTimeLeft(newGame.timeLimit);
-  }, [difficulty]);
+    
+    // Dispatch events for test screen
+    window.dispatchEvent(new CustomEvent('gameStateChange', { detail: newGame }));
+    window.dispatchEvent(new CustomEvent('progressiveStateChange', { detail: progressiveState }));
+  }, [progressiveState]);
+
+  // Handle game completion
+  const handleGameCompletion = useCallback((isWon: boolean) => {
+    if (!gameState) return;
+    
+    const gameResult: GameResult = {
+      sentenceNumber: progressiveState.currentSentenceNumber,
+      difficulty: gameState.difficulty,
+      isWon,
+      mistakes: gameState.mistakes,
+      hintsUsed: gameState.hintsUsed,
+      timeSpent: Math.floor((Date.now() - gameState.startTime) / 1000)
+    };
+    
+    const updatedProgressiveState = recordGameResult(progressiveState, gameResult);
+    setProgressiveState(updatedProgressiveState);
+    
+    // Dispatch events for test screen
+    window.dispatchEvent(new CustomEvent('gameResult', { detail: gameResult }));
+    window.dispatchEvent(new CustomEvent('progressiveStateChange', { detail: updatedProgressiveState }));
+    
+    // Show success popup if won, otherwise show failure message
+    if (isWon) {
+      setShowSuccessPopup(true);
+    }
+  }, [gameState, progressiveState]);
+
+  // Handle next game button
+  const handleNextGame = useCallback(() => {
+    setShowSuccessPopup(false);
+    startNewGame();
+  }, [startNewGame]);
 
   // Start game on component mount
   useEffect(() => {
     startNewGame();
+  }, []); // Empty dependency array - only run on mount
+
+  // Dispatch game state changes
+  useEffect(() => {
+    if (gameState) {
+      window.dispatchEvent(new CustomEvent('gameStateChange', { detail: gameState }));
+    }
+  }, [gameState]);
+
+  // Listen for custom events from test screen
+  useEffect(() => {
+    const handleResetGame = () => {
+      setProgressiveState(initializeProgressiveGame());
+      startNewGame();
+    };
+
+    const handleStartNewGame = () => {
+      startNewGame();
+    };
+
+    window.addEventListener('resetGame', handleResetGame);
+    window.addEventListener('startNewGame', handleStartNewGame);
+
+    return () => {
+      window.removeEventListener('resetGame', handleResetGame);
+      window.removeEventListener('startNewGame', handleStartNewGame);
+    };
   }, [startNewGame]);
 
   // Timer effect
@@ -97,6 +166,7 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
       
       if (remaining <= 0) {
         setGameState(prev => prev ? { ...prev, isGameOver: true, isWon: false } : null);
+        handleGameCompletion(false);
       }
     }, 1000);
 
@@ -107,7 +177,7 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
   const handleHint = useCallback(() => {
     if (!gameState || gameState.isGameOver) return;
     
-    const hintResult = useHint(gameState);
+    const hintResult = useHint(gameState, progressiveState);
     
     if (hintResult.success && hintResult.revealedPositions) {
       setGameState(prev => {
@@ -118,12 +188,27 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
           newUserRevealedPositions.add(position);
         });
         
-        return {
+        const newState = {
           ...prev,
           userRevealedPositions: newUserRevealedPositions,
           hintsUsed: prev.hintsUsed + 1
         };
+        
+        // Check if game is completed after hint
+        if (hintResult.isGameCompleted) {
+          newState.isWon = true;
+          newState.isGameOver = true;
+        }
+        
+        return newState;
       });
+      
+      // If game completed, trigger completion handler
+      if (hintResult.isGameCompleted) {
+        setTimeout(() => {
+          handleGameCompletion(true);
+        }, 100);
+      }
     }
   }, [gameState]);
 
@@ -156,22 +241,8 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
         
         // Then process after a short delay to show the letter
         setTimeout(() => {
-          // For processing, use normalized version
-          const processedKey = key
-            .replace(/İ/g, 'I')
-            .replace(/ı/g, 'I')
-            .replace(/i/g, 'I')
-            .replace(/Ğ/g, 'G')
-            .replace(/ğ/g, 'G')
-            .replace(/Ü/g, 'U')
-            .replace(/ü/g, 'U')
-            .replace(/Ş/g, 'S')
-            .replace(/ş/g, 'S')
-            .replace(/Ö/g, 'O')
-            .replace(/ö/g, 'O')
-            .replace(/Ç/g, 'C')
-            .replace(/ç/g, 'C');
-          const result = makeGuess(gameState, processedKey, difficulty, selectedLetterIndex);
+          // Use the Turkish character directly (no normalization)
+          const result = makeGuess(gameState, key, gameState.difficulty, selectedLetterIndex);
           setGameState(result.newState);
           
           // Show wrong guess effect if guess was incorrect
@@ -181,6 +252,15 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
             setTimeout(() => {
               setWrongGuessIndex(null);
             }, 1000);
+          }
+          
+          // Check if game is completed
+          if (result.newState.isGameOver) {
+            if (result.newState.isWon) {
+              handleGameCompletion(true);
+            } else {
+              handleGameCompletion(false);
+            }
           }
           
           setSelectedLetterIndex(null);
@@ -193,14 +273,6 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [gameState, selectedLetterIndex]);
 
-  // Handle difficulty change
-  const handleDifficultyChange = (newDifficulty: 'easy' | 'medium' | 'hard') => {
-    setDifficulty(newDifficulty);
-    setShowSettings(false);
-    if (gameState) {
-      startNewGame();
-    }
-  };
 
   // BASIT KUTU SİSTEMİ - KELİME BÜTÜNLÜĞÜ KORUNUR
   const getLetterBoxes = () => {
@@ -316,42 +388,10 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
         </div>
         
         <div className="flex items-center">
-          {/* Settings button */}
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="text-white hover:text-gray-300"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
+          {/* Progressive difficulty system - no manual settings */}
         </div>
       </header>
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="bg-gray-800 px-6 py-4 border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <h3 className="text-white text-sm font-medium">Zorluk Seviyesi</h3>
-            <div className="flex space-x-2">
-              {(['easy', 'medium', 'hard'] as const).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleDifficultyChange(level)}
-                  className={`px-3 py-1 rounded text-xs font-medium ${
-                    difficulty === level
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                  }`}
-                >
-                  {level === 'easy' ? 'Kolay' : level === 'medium' ? 'Orta' : 'Zor'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <main className="flex-1 bg-white px-6 py-8">
@@ -377,6 +417,9 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
                 <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
               </div>
             )}
+            <div>
+              <span className="font-semibold">Cümle:</span> {progressiveState.currentSentenceNumber}
+            </div>
             <div>
               <span className="font-semibold">Harf Sayısı:</span> {letterBoxes.filter(b => !b.isSpace).length}
             </div>
@@ -475,26 +518,39 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
           </div>
         )}
 
-        {/* Game Status */}
-        {gameState.isGameOver && (
+        {/* Game Status - Only show failure message, success handled by popup */}
+        {gameState.isGameOver && !gameState.isWon && (
           <div className="text-center mt-8">
-            {gameState.isWon ? (
-              <div className="text-green-600">
-                <div className="text-4xl mb-4">🎉</div>
-                <h2 className="text-2xl font-bold mb-2">Tebrikler!</h2>
-                <p className="text-lg mb-2">Cümleyi çözdünüz!</p>
-              </div>
-            ) : (
-              <div className="text-red-600">
-                <div className="text-4xl mb-4">😞</div>
-                <h2 className="text-2xl font-bold mb-2">Oyun Bitti!</h2>
-                <p className="text-lg mb-2">Çok fazla hata yaptınız.</p>
-                <p className="text-lg">Doğru cümle: <strong>{gameState.originalSentence}</strong></p>
-              </div>
-            )}
+            <div className="text-red-600">
+              <div className="text-4xl mb-4">😞</div>
+              <h2 className="text-2xl font-bold mb-2">Oyun Bitti!</h2>
+              <p className="text-lg mb-2">Çok fazla hata yaptınız.</p>
+              <p className="text-lg">Doğru cümle: <strong>{gameState.originalSentence}</strong></p>
+            </div>
           </div>
         )}
       </main>
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 text-center shadow-lg border-2 border-green-200">
+            <div className="text-4xl mb-3">🎉</div>
+            <h3 className="text-xl font-bold text-green-600 mb-2">
+              Tebrikler!
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Cümleyi başarıyla çözdünüz!
+            </p>
+            <button
+              onClick={handleNextGame}
+              className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              Sonraki Oyun
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New Game Confirmation Modal */}
       {showNewGameConfirm && (
