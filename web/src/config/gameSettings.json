@@ -14,7 +14,7 @@
       "revealProbability": 1.0,
       "hintCount": 3,
       "maxAttempts": 15,
-      "timeLimit": 600
+      "timeLimit": 0
     },
     "medium": {
       "name": "Orta",
@@ -30,7 +30,7 @@
       "revealProbability": 0.9,
       "hintCount": 2,
       "maxAttempts": 10,
-      "timeLimit": 300
+      "timeLimit": 0
     },
     "hard": {
       "name": "Zor",

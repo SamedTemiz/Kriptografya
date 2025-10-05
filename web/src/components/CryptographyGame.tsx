@@ -83,7 +83,7 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
 
   // Timer effect
   useEffect(() => {
-    if (!gameState || gameState.isGameOver) return;
+    if (!gameState || gameState.isGameOver || gameState.timeLimit === 0) return;
 
     const timer = setInterval(() => {
       const remaining = getRemainingTime(gameState);
@@ -340,9 +340,11 @@ export default function CryptographyGame({ initialDifficulty = 'medium' }: Crypt
         {/* Game Info */}
         <div className="text-center mb-8">
           <div className="flex justify-center space-x-8 text-sm text-gray-600">
-            <div>
-              <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
-            </div>
+            {gameState.timeLimit > 0 && (
+              <div>
+                <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
+              </div>
+            )}
             <div>
               <span className="font-semibold">Skor:</span> {gameState.score}
             </div>

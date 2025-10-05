@@ -204,6 +204,8 @@ export function initializeGame(difficulty: 'easy' | 'medium' | 'hard' = 'easy'):
   const mapping = generateCipherMapping();
   const cipherSentence = sentenceToCipher(sentence.text, mapping);
   
+  const difficultySettings = getDifficultySettings(difficulty);
+  
   // Get all letters from the sentence (without spaces) and normalize for processing
   const allLetters = normalizeForProcessing(sentence.text)
     .split('')
@@ -325,7 +327,7 @@ export function initializeGame(difficulty: 'easy' | 'medium' | 'hard' = 'easy'):
     mistakes: 0,
     maxMistakes: 3,
     score: 0,
-    timeLimit: difficulty === 'easy' ? 300 : difficulty === 'medium' ? 420 : 600, // 5, 7, 10 minutes
+    timeLimit: difficultySettings.timeLimit,
     startTime: Date.now(),
     isGameOver: false,
     isWon: false,
