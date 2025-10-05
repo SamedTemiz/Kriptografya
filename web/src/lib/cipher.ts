@@ -3,6 +3,21 @@
  * Substitution cipher implementation for Turkish language
  */
 
+import gameSettings from '../config/gameSettings.json';
+
+function getDifficultySettings(difficulty: 'easy' | 'medium' | 'hard') {
+  return gameSettings.difficulty[difficulty];
+}
+
+function getWordLengthCategory(wordLength: number): string {
+  if (wordLength <= 4) return '3-4';
+  if (wordLength <= 6) return '5-6';
+  if (wordLength <= 8) return '7-8';
+  if (wordLength <= 9) return '9';
+  if (wordLength <= 12) return '10-12';
+  return '12+';
+}
+
 /**
  * Normalize text for internal processing (Turkish chars converted to ASCII)
  */
@@ -40,6 +55,7 @@ export interface GameState {
   letterMapping: Map<string, number>;
   revealedLetters: Set<string>; // Oyun başında açılan harfler
   userRevealedPositions: Set<number>; // Kullanıcının açtığı pozisyonlar
+  initialRevealedPositions: Set<number>; // Oyun başında açılan pozisyonlar
   mistakes: number;
   maxMistakes: number;
   score: number;
@@ -210,122 +226,102 @@ export function initializeGame(difficulty: 'easy' | 'medium' | 'hard' = 'easy'):
     
     if (wordLetters.length === 0) return;
     
-    // Kelime uzunluğuna göre maksimum açılabilir harf sayısı
-    let maxLettersFromWord: number;
-    if (difficulty === 'hard') {
-      // Zor modda daha sıkı kısıtlamalar
-      if (wordLetters.length <= 4) {
-        maxLettersFromWord = 1; // 3-4 harf → en fazla 1 harf
-      } else if (wordLetters.length <= 6) {
-        maxLettersFromWord = 1; // 5-6 harf → en fazla 1 harf
-      } else if (wordLetters.length <= 8) {
-        maxLettersFromWord = 2; // 7-8 harf → en fazla 2 harf
-      } else {
-        maxLettersFromWord = 2; // 9+ harf → en fazla 2 harf
-      }
-    } else {
-      // Kolay ve orta modda normal kısıtlamalar
-      if (wordLetters.length <= 4) {
-        maxLettersFromWord = 1; // 3-4 harf → en fazla 1 harf
-      } else if (wordLetters.length <= 6) {
-        maxLettersFromWord = 2; // 5-6 harf → en fazla 2 harf
-      } else if (wordLetters.length <= 8) {
-        maxLettersFromWord = 3; // 7-8 harf → en fazla 3 harf
-      } else {
-        maxLettersFromWord = 4; // 9+ harf → en fazla 4 harf
-      }
-    }
+    const difficultySettings = getDifficultySettings(difficulty);
+    const wordLengthCategory = getWordLengthCategory(wordLetters.length);
+    const maxLettersFromWord = difficultySettings.letterRevealLimits[wordLengthCategory as keyof typeof difficultySettings.letterRevealLimits];
     
-    // Bu kelimeden kaç harf açılacağını hesapla
     let lettersFromThisWord: number;
+    const revealProbability = difficultySettings.revealProbability;
     
     if (difficulty === 'easy') {
-      // Kolay modda: Her kelimede kesinlikle harf aç (maksimum kısıtlamaya kadar)
-      lettersFromThisWord = Math.min(maxLettersFromWord, Math.max(1, wordLetters.length)); // En az 1, en fazla maxLettersFromWord
-    } else {
-      // Orta ve zor modda: Hibrit sistem
+      lettersFromThisWord = maxLettersFromWord;
+    } else if (difficulty === 'medium') {
       if (wordLetters.length <= 4) {
-        // Kısa kelimeler (≤4 harf): Rastgele (50% şans)
-        const shouldReveal = Math.random() < 0.5;
+        const shouldReveal = Math.random() < revealProbability;
         lettersFromThisWord = shouldReveal ? Math.min(1, maxLettersFromWord) : 0;
       } else {
-        // Uzun kelimeler (≥5 harf): Kesin harf aç (maksimum kısıtlamaya kadar)
-        if (difficulty === 'hard') {
-          // Zor modda: Sadece maksimum kısıtlamaya kadar
-          lettersFromThisWord = maxLettersFromWord;
-        } else {
-          // Orta modda: Maksimum kısıtlamaya kadar
-          lettersFromThisWord = Math.min(maxLettersFromWord, wordLetters.length);
-        }
+        lettersFromThisWord = maxLettersFromWord;
+      }
+    } else {
+      if (wordLetters.length <= 4) {
+        const shouldReveal = Math.random() < revealProbability;
+        lettersFromThisWord = shouldReveal ? Math.min(1, maxLettersFromWord) : 0;
+      } else {
+        lettersFromThisWord = maxLettersFromWord;
       }
     }
     
-     // Bu kelimeden POZİSYON bazlı seçim yap (harf bazlı değil)
-     let selectedPositions: number[] = [];
-     
-     if (lettersFromThisWord > 0) {
-       // Orijinal Türkçe karakterlerle çalış
-       const originalWordLetters = word.toUpperCase().split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+    let selectedPositions: number[] = [];
+    
+    if (lettersFromThisWord > 0) {
+      const originalWordLetters = word.toUpperCase().split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+      
+      const allPositions = originalWordLetters.map((_, index) => index);
        
-       
-       // Tüm pozisyonları al (0, 1, 2, ...)
-       const allPositions = originalWordLetters.map((_, index) => index);
-       
-       if (difficulty === 'easy') {
-         // Kolay modda: Kenar pozisyonlar + yaygın harfler öncelik
-         const commonLetters = ['E', 'A', 'İ', 'N', 'R', 'L', 'T', 'O', 'U', 'K', 'M', 'Y', 'S', 'D'];
-         
-         // Kenar pozisyonları (başlangıç ve bitiş)
-         const edgePositions = [0, originalWordLetters.length - 1];
-         
-         // Yaygın harflerin pozisyonları
-         const commonPositions = allPositions.filter(index => 
-           commonLetters.includes(originalWordLetters[index])
-         );
-         
-         // Nadir harflerin pozisyonları
-         const rarePositions = allPositions.filter(index => 
-           !commonLetters.includes(originalWordLetters[index])
-         );
-         
-         // Öncelik sırası: Kenar pozisyonlar > Yaygın harf pozisyonları > Nadir harf pozisyonları
-         let priorityPositions = [...new Set([...edgePositions, ...commonPositions, ...rarePositions])];
-         priorityPositions = priorityPositions.slice(0, Math.min(lettersFromThisWord, priorityPositions.length));
-         
-         selectedPositions = priorityPositions;
-       } else {
-         // Orta ve zor modda: Rastgele pozisyon seçimi
-         const shuffledPositions = allPositions.sort(() => Math.random() - 0.5);
-         selectedPositions = shuffledPositions.slice(0, Math.min(lettersFromThisWord, allPositions.length));
-       }
+      if (difficulty === 'easy') {
+        const gameMechanics = gameSettings.gameMechanics;
+        const commonLetters = gameMechanics.commonLetters;
+        
+        if (gameMechanics.easyMode.useEdgePositions) {
+          const edgePositions = [0, originalWordLetters.length - 1];
+          
+          const commonPositions = allPositions.filter(index => 
+            commonLetters.includes(originalWordLetters[index])
+          );
+          
+          const rarePositions = allPositions.filter(index => 
+            !commonLetters.includes(originalWordLetters[index])
+          );
+          
+          let priorityPositions = [...new Set([...edgePositions, ...commonPositions, ...rarePositions])];
+          priorityPositions = priorityPositions.slice(0, Math.min(lettersFromThisWord, priorityPositions.length));
+          
+          selectedPositions = priorityPositions;
+        } else {
+          const shuffledPositions = allPositions.sort(() => Math.random() - 0.5);
+          selectedPositions = shuffledPositions.slice(0, Math.min(lettersFromThisWord, allPositions.length));
+        }
+      } else {
+        const shuffledPositions = allPositions.sort(() => Math.random() - 0.5);
+        selectedPositions = shuffledPositions.slice(0, Math.min(lettersFromThisWord, allPositions.length));
+      }
        
      }
      
-     // Seçilen pozisyonlardaki harfleri ekle (Türkçe karakterlerle)
-     // HER KELİME İÇİN AYRI KONTROL: Sadece bu kelimede açılan pozisyonları ekle
-     if (!wordRevealedPositions.has(word)) {
-       wordRevealedPositions.set(word, new Set<number>());
-     }
-     
-     selectedPositions.forEach(positionIndex => {
-       const originalWordLetters = word.split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
-       const letter = normalizeForDisplay(originalWordLetters[positionIndex]);
-       // Keep Turkish character for display
-       revealedLetters.add(letter);
-       wordRevealedPositions.get(word)!.add(positionIndex);
-     });
+    if (!wordRevealedPositions.has(word)) {
+      wordRevealedPositions.set(word, new Set<number>());
+    }
+    
+    selectedPositions.forEach(positionIndex => {
+      const originalWordLetters = word.split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+      const letter = normalizeForDisplay(originalWordLetters[positionIndex]);
+      wordRevealedPositions.get(word)!.add(positionIndex);
+    });
   });
   
-  // Kelime kısıtlamaları yeterli - ek harf ekleme sistemi kaldırıldı
-  // Bu şekilde zor modda kelime bazında maksimum kısıtlamalar çalışır
   
   
+  const initialRevealedPositions = new Set<number>();
+  let globalPositionIndex = 0;
+
+  words.forEach(word => {
+    const wordPositions = wordRevealedPositions.get(word);
+    if (wordPositions) {
+      wordPositions.forEach(position => {
+        initialRevealedPositions.add(globalPositionIndex + position);
+      });
+    }
+    const wordLetters = word.split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+    globalPositionIndex += wordLetters.length;
+  });
+
   return {
     originalSentence: sentence.text,
     cipherSentence,
     letterMapping: mapping,
-    revealedLetters,
-    userRevealedPositions: new Set<number>(), // Kullanıcının açtığı pozisyonlar başlangıçta boş
+    revealedLetters: new Set<string>(),
+    userRevealedPositions: new Set<number>(),
+    initialRevealedPositions: initialRevealedPositions,
     mistakes: 0,
     maxMistakes: 3,
     score: 0,

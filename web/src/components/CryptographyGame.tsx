@@ -22,19 +22,21 @@ interface LetterBoxProps {
   isSelected: boolean;
   currentGuess: string;
   isUserRevealed?: boolean; // Kullanıcı tarafından açılan pozisyon mu?
-  showNumber?: boolean; // Sayı gösterilsin mi?
+  isWrongGuess?: boolean; // Kullanıcı yanlış girişi mi?
 }
 
-function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, showNumber }: LetterBoxProps) {
+function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess }: LetterBoxProps) {
   return (
     <div className="flex flex-col items-center h-16">
       <button
         onClick={onClick}
         className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all ${
-          isRevealed && isUserRevealed
-            ? 'bg-white border-green-500 text-green-700' 
+          isRevealed && isUserRevealed && !isWrongGuess
+            ? 'bg-green-100 border-green-500 text-green-700' // Kullanıcı doğru girişi - YEŞİL
+            : isRevealed && isUserRevealed && isWrongGuess
+            ? 'bg-red-100 border-red-500 text-red-700' // Kullanıcı yanlış girişi - KIRMIZI
             : isRevealed
-            ? 'bg-white border-gray-300 text-gray-600'
+            ? 'bg-white border-gray-300 text-gray-600' // Oyun başında açılan harf - NORMAL
             : isSelected
             ? 'bg-blue-50 border-blue-500 text-blue-700'
             : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
@@ -44,8 +46,8 @@ function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGue
       </button>
       {/* Her zaman aynı yükseklikte alan ayır */}
       <div className="h-6 flex items-center justify-center">
-        {/* Sadece sayı gösterilmesi gereken durumlarda göster */}
-        {showNumber && (
+        {/* Sayı gösterimi: Sadece kapalı harfler ve kullanıcı girişleri için */}
+        {(!isRevealed || (isRevealed && isUserRevealed)) && (
           <div className="text-xs text-gray-500 font-mono">
             {number}
           </div>
@@ -223,7 +225,8 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
             .replace(/ç/g, 'C');
           number = gameState.letterMapping.get(normalizedLetter);
         }
-        const isRevealed = gameState.revealedLetters.has(letter) || gameState.userRevealedPositions.has(letterIndex);
+        // Check if this position is revealed (either by initial reveal or user guess)
+        const isRevealed = gameState.initialRevealedPositions.has(letterIndex) || gameState.userRevealedPositions.has(letterIndex);
         
         boxes.push({
           letter,
@@ -405,8 +408,7 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
                           onClick={() => handleLetterClick(box.index)}
                           isSelected={selectedLetterIndex === box.index}
                           currentGuess={currentGuess}
-                          isUserRevealed={gameState?.userRevealedPositions.has(box.index)}
-                          showNumber={!gameState?.revealedLetters.has(box.letter)} // Sadece oyun başında açılan harflerin altında sayı olmasın
+                          isUserRevealed={gameState?.userRevealedPositions.has(box.index) && !gameState?.initialRevealedPositions.has(box.index)}
                         />
                       );
                       

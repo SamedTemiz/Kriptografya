@@ -1,0 +1,85 @@
+{
+  "difficulty": {
+    "easy": {
+      "name": "Kolay",
+      "description": "Bol yardım ile oyun",
+      "letterRevealLimits": {
+        "3-4": 1,
+        "5-6": 2,
+        "7-8": 3,
+        "9": 4,
+        "10-12": 5,
+        "12+": 6
+      },
+      "revealProbability": 1.0,
+      "hintCount": 3,
+      "maxAttempts": 15,
+      "timeLimit": 600
+    },
+    "medium": {
+      "name": "Orta",
+      "description": "Dengeli zorluk",
+      "letterRevealLimits": {
+        "3-4": 1,
+        "5-6": 1,
+        "7-8": 2,
+        "9": 3,
+        "10-12": 4,
+        "12+": 5
+      },
+      "revealProbability": 0.9,
+      "hintCount": 2,
+      "maxAttempts": 10,
+      "timeLimit": 300
+    },
+    "hard": {
+      "name": "Zor",
+      "description": "Minimal yardım ile zorlu oyun",
+      "letterRevealLimits": {
+        "3-4": 1,
+        "5-6": 1,
+        "7-8": 1,
+        "9": 2,
+        "10-12": 3,
+        "12+": 4
+      },
+      "revealProbability": 0.6,
+      "hintCount": 1,
+      "maxAttempts": 7,
+      "timeLimit": 180
+    }
+  },
+  "gameSettings": {
+    "maxAttempts": 10,
+    "timeLimit": 300,
+    "showHints": true,
+    "soundEnabled": true,
+    "animations": true,
+    "autoSave": true
+  },
+  "uiSettings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "language": "tr",
+    "showNumbers": true,
+    "showProgress": true
+  },
+  "gameMechanics": {
+    "commonLetters": ["E", "A", "İ", "N", "R", "L", "T", "O", "U", "K", "M", "Y", "S", "D"],
+    "easyMode": {
+      "useCommonLetters": true,
+      "useEdgePositions": true,
+      "priorityOrder": ["edge", "common", "rare"]
+    },
+    "mediumMode": {
+      "useCommonLetters": false,
+      "useEdgePositions": false,
+      "priorityOrder": ["random"]
+    },
+    "hardMode": {
+      "useCommonLetters": false,
+      "useEdgePositions": false,
+      "priorityOrder": ["random"]
+    }
+  }
+}
