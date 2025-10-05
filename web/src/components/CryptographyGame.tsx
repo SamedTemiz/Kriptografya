@@ -7,6 +7,7 @@ import {
   makeGuess, 
   getRemainingTime, 
   formatTime,
+  useHint,
   type Sentence 
 } from '@/lib/cipher';
 
@@ -21,17 +22,20 @@ interface LetterBoxProps {
   onClick: () => void;
   isSelected: boolean;
   currentGuess: string;
-  isUserRevealed?: boolean; // Kullanıcı tarafından açılan pozisyon mu?
-  isWrongGuess?: boolean; // Kullanıcı yanlış girişi mi?
+  isUserRevealed?: boolean;
+  isWrongGuess?: boolean;
+  isWrongGuessEffect?: boolean;
 }
 
-function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess }: LetterBoxProps) {
+function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess, isWrongGuessEffect }: LetterBoxProps) {
   return (
     <div className="flex flex-col items-center h-16">
       <button
         onClick={onClick}
-        className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all ${
-          isRevealed && isUserRevealed && !isWrongGuess
+        className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all duration-300 ${
+          isWrongGuessEffect
+            ? 'bg-red-200 border-red-600 text-red-800 animate-pulse' // Yanlış tahmin efekti - KIRMIZI PULSE
+            : isRevealed && isUserRevealed && !isWrongGuess
             ? 'bg-green-100 border-green-500 text-green-700' // Kullanıcı doğru girişi - YEŞİL
             : isRevealed && isUserRevealed && isWrongGuess
             ? 'bg-red-100 border-red-500 text-red-700' // Kullanıcı yanlış girişi - KIRMIZI
@@ -57,7 +61,7 @@ function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGue
   );
 }
 
-export default function CryptographyGame({ initialDifficulty = 'easy' }: CryptographyGameProps) {
+export default function CryptographyGame({ initialDifficulty = 'medium' }: CryptographyGameProps) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(initialDifficulty);
   const [selectedLetterIndex, setSelectedLetterIndex] = useState<number | null>(null);
@@ -65,6 +69,8 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [wrongGuessIndex, setWrongGuessIndex] = useState<number | null>(null);
 
   // Initialize game
   const startNewGame = useCallback(() => {
@@ -83,7 +89,7 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
 
   // Timer effect
   useEffect(() => {
-    if (!gameState || gameState.isGameOver) return;
+    if (!gameState || gameState.isGameOver || gameState.timeLimit === 0) return;
 
     const timer = setInterval(() => {
       const remaining = getRemainingTime(gameState);
@@ -95,6 +101,30 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [gameState]);
+
+  // Handle hint
+  const handleHint = useCallback(() => {
+    if (!gameState || gameState.isGameOver) return;
+    
+    const hintResult = useHint(gameState);
+    
+    if (hintResult.success && hintResult.revealedPositions) {
+      setGameState(prev => {
+        if (!prev) return null;
+        
+        const newUserRevealedPositions = new Set(prev.userRevealedPositions);
+        hintResult.revealedPositions!.forEach(position => {
+          newUserRevealedPositions.add(position);
+        });
+        
+        return {
+          ...prev,
+          userRevealedPositions: newUserRevealedPositions,
+          hintsUsed: prev.hintsUsed + 1
+        };
+      });
+    }
   }, [gameState]);
 
   // Handle letter box click
@@ -144,17 +174,17 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
           const result = makeGuess(gameState, processedKey, difficulty, selectedLetterIndex);
           setGameState(result.newState);
           
-          if (result.success) {
-            setMessage('✅ Doğru!');
-          } else {
-            setMessage('❌ Yanlış!');
+          // Show wrong guess effect if guess was incorrect
+          if (!result.success) {
+            setWrongGuessIndex(selectedLetterIndex);
+            // Clear the effect after 1 second
+            setTimeout(() => {
+              setWrongGuessIndex(null);
+            }, 1000);
           }
           
           setSelectedLetterIndex(null);
           setCurrentGuess('');
-          
-          // Clear message after 1.5 seconds
-          setTimeout(() => setMessage(''), 1500);
         }, 300);
       }
     };
@@ -286,18 +316,6 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
         </div>
         
         <div className="flex items-center">
-          {/* Error indicators */}
-          <div className="flex space-x-1 mr-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full ${
-                  i <= gameState.mistakes ? 'bg-red-500' : 'bg-gray-600'
-                }`}
-              />
-            ))}
-          </div>
-          
           {/* Settings button */}
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -337,15 +355,28 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
 
       {/* Main Content */}
       <main className="flex-1 bg-white px-6 py-8">
+        {/* Error indicators */}
+        <div className="flex justify-center mb-4">
+          <div className="flex space-x-2">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className={`w-3 h-3 rounded ${
+                  i <= gameState.mistakes ? 'bg-red-500' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
         {/* Game Info */}
         <div className="text-center mb-8">
           <div className="flex justify-center space-x-8 text-sm text-gray-600">
-            <div>
-              <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
-            </div>
-            <div>
-              <span className="font-semibold">Skor:</span> {gameState.score}
-            </div>
+            {gameState.timeLimit > 0 && (
+              <div>
+                <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
+              </div>
+            )}
             <div>
               <span className="font-semibold">Harf Sayısı:</span> {letterBoxes.filter(b => !b.isSpace).length}
             </div>
@@ -409,6 +440,7 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
                           isSelected={selectedLetterIndex === box.index}
                           currentGuess={currentGuess}
                           isUserRevealed={gameState?.userRevealedPositions.has(box.index) && !gameState?.initialRevealedPositions.has(box.index)}
+                          isWrongGuessEffect={wrongGuessIndex === box.index}
                         />
                       );
                       
@@ -451,7 +483,6 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
                 <div className="text-4xl mb-4">🎉</div>
                 <h2 className="text-2xl font-bold mb-2">Tebrikler!</h2>
                 <p className="text-lg mb-2">Cümleyi çözdünüz!</p>
-                <p className="text-lg font-semibold">Skor: {gameState.score}</p>
               </div>
             ) : (
               <div className="text-red-600">
@@ -465,20 +496,59 @@ export default function CryptographyGame({ initialDifficulty = 'easy' }: Cryptog
         )}
       </main>
 
+      {/* New Game Confirmation Modal */}
+      {showNewGameConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Yeni Oyun Başlat
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Mevcut oyun silinecek ve yeni bir oyun başlatılacak. Emin misiniz?
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowNewGameConfirm(false);
+                  startNewGame();
+                }}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Evet, Başlat
+              </button>
+              <button
+                onClick={() => setShowNewGameConfirm(false)}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="bg-gray-900 px-6 py-4">
         <div className="flex justify-center space-x-4">
           {/* Hint Button */}
-          <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors">
+          <button 
+            onClick={handleHint}
+            disabled={!gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints}
+            className={`px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors ${
+              !gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints
+                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                : 'bg-orange-500 hover:bg-orange-600 text-white'
+            }`}
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <span>İpucu (3)</span>
+            <span>İpucu ({gameState ? gameState.maxHints - gameState.hintsUsed : 0})</span>
           </button>
           
           {/* New Game Button */}
           <button
-            onClick={startNewGame}
+            onClick={() => setShowNewGameConfirm(true)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
