@@ -4,9 +4,10 @@ interface VirtualKeyboardProps {
   onKeyPress: (key: string) => void;
   onDirectionPress: (direction: 'left' | 'right') => void;
   disabled?: boolean;
+  correctLetters?: Set<string>; // Kullanıcının doğru bulduğu harfler
 }
 
-export default function VirtualKeyboard({ onKeyPress, onDirectionPress, disabled = false }: VirtualKeyboardProps) {
+export default function VirtualKeyboard({ onKeyPress, onDirectionPress, disabled = false, correctLetters = new Set() }: VirtualKeyboardProps) {
   // Turkish alphabet with special characters
   const keyboardRows = [
     ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Ğ', 'Ü'],
@@ -35,10 +36,10 @@ export default function VirtualKeyboard({ onKeyPress, onDirectionPress, disabled
           onClick={() => handleDirectionClick('left')}
           disabled={disabled}
           className={`
-            px-2 md:px-4 py-4 md:py-6 text-sm md:text-lg font-bold rounded-lg transition-all duration-200
+            px-2 md:px-4 py-4 md:py-6 text-sm md:text-lg font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95
             ${disabled 
               ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-              : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+              : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 hover:shadow-lg'
             }
             flex items-center justify-center min-w-[60px] md:min-w-[80px] h-20 md:h-24
           `}
@@ -58,10 +59,12 @@ export default function VirtualKeyboard({ onKeyPress, onDirectionPress, disabled
                   onClick={() => handleKeyClick(key)}
                   disabled={disabled}
                   className={`
-                    px-2 md:px-4 py-2 md:py-3 text-sm md:text-base font-bold rounded-lg transition-all duration-200
+                    px-2 md:px-4 py-2 md:py-3 text-sm md:text-base font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95
                     ${disabled 
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-700 text-white hover:bg-gray-600 active:bg-gray-500'
+                      : correctLetters.has(key)
+                        ? 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800 hover:shadow-lg'
+                        : 'bg-gray-700 text-white hover:bg-gray-600 active:bg-gray-500 hover:shadow-lg'
                     }
                     min-w-[36px] md:min-w-[44px] h-10 md:h-12 flex items-center justify-center
                   `}
@@ -78,10 +81,10 @@ export default function VirtualKeyboard({ onKeyPress, onDirectionPress, disabled
           onClick={() => handleDirectionClick('right')}
           disabled={disabled}
           className={`
-            px-2 md:px-4 py-4 md:py-6 text-sm md:text-lg font-bold rounded-lg transition-all duration-200
+            px-2 md:px-4 py-4 md:py-6 text-sm md:text-lg font-bold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95
             ${disabled 
               ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-              : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+              : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 hover:shadow-lg'
             }
             flex items-center justify-center min-w-[60px] md:min-w-[80px] h-20 md:h-24
           `}

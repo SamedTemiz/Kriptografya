@@ -56,6 +56,7 @@ export interface GameState {
   revealedLetters: Set<string>; // Oyun başında açılan harfler
   userRevealedPositions: Set<number>; // Kullanıcının açtığı pozisyonlar
   initialRevealedPositions: Set<number>; // Oyun başında açılan pozisyonlar
+  wordRevealedPositions: Map<string, Set<number>>; // Her kelime için açılan pozisyonlar
   mistakes: number;
   maxMistakes: number;
   timeLimit: number;
@@ -89,52 +90,19 @@ export interface ProgressiveGameState {
   adaptiveMode: boolean;
 }
 
-// Turkish sentences database
-export const SENTENCES: Sentence[] = [
-  // Easy sentences (3-4 words) - Simple, common words
-  { text: 'Güneş doğuyor', difficulty: 'easy', category: 'nature' },
-  { text: 'Kedi uyuyor', difficulty: 'easy', category: 'animals' },
-  { text: 'Su içiyorum', difficulty: 'easy', category: 'daily' },
-  { text: 'Kitap okuyorum', difficulty: 'easy', category: 'education' },
-  { text: 'Müzik dinliyorum', difficulty: 'easy', category: 'entertainment' },
-  { text: 'Yemek yiyorum', difficulty: 'easy', category: 'daily' },
-  { text: 'Arkadaşım geldi', difficulty: 'easy', category: 'social' },
-  { text: 'Ev temizliyorum', difficulty: 'easy', category: 'daily' },
-  { text: 'Çiçek suluyorum', difficulty: 'easy', category: 'nature' },
-  { text: 'Telefon çalıyor', difficulty: 'easy', category: 'technology' },
-  { text: 'Bahçe güzeldir', difficulty: 'easy', category: 'nature' },
-  { text: 'Sokak sessizdir', difficulty: 'easy', category: 'daily' },
-  { text: 'Deniz mavidir', difficulty: 'easy', category: 'nature' },
-  { text: 'Kuş uçuyor', difficulty: 'easy', category: 'animals' },
-  { text: 'Ağaç yüksektir', difficulty: 'easy', category: 'nature' },
+// Import sentences from JSON file
+import sentencesData from '@/data/sentences.json';
 
-  // Medium sentences (5-7 words) - More complex but still common
-  { text: 'Bugün hava çok güzel', difficulty: 'medium', category: 'weather' },
-  { text: 'Yarın sinemaya gideceğim', difficulty: 'medium', category: 'entertainment' },
-  { text: 'Annem lezzetli yemek yaptı', difficulty: 'medium', category: 'family' },
-  { text: 'Okulda matematik dersi var', difficulty: 'medium', category: 'education' },
-  { text: 'Parkta çocuklar oynuyor', difficulty: 'medium', category: 'social' },
-  { text: 'Kitapçıdan yeni roman aldım', difficulty: 'medium', category: 'education' },
-  { text: 'Kahve içmeyi çok seviyorum', difficulty: 'medium', category: 'daily' },
-  { text: 'Spor yapmak sağlıklı', difficulty: 'medium', category: 'health' },
-  { text: 'Müze gezisi çok eğlenceli', difficulty: 'medium', category: 'culture' },
-  { text: 'Arkadaşlarımla piknik yapacağız', difficulty: 'medium', category: 'social' },
-  { text: 'Türk kahvesi çok lezzetli', difficulty: 'medium', category: 'culture' },
-  { text: 'İstanbul büyük bir şehir', difficulty: 'medium', category: 'geography' },
-  { text: 'Kış ayları soğuk geçer', difficulty: 'medium', category: 'weather' },
-  { text: 'Akşam yemeği hazırladık', difficulty: 'medium', category: 'daily' },
-  { text: 'Müzik dinlemek güzeldir', difficulty: 'medium', category: 'entertainment' },
+// Turkish sentences database - loaded from JSON
+export const SENTENCES: Sentence[] = sentencesData.sentences.map(sentence => ({
+  text: sentence.text,
+  difficulty: sentence.difficulty as 'easy' | 'medium' | 'hard',
+  category: sentence.category
+}));
 
-  // Hard sentences (8+ words) - Complex, longer sentences
-  { text: 'Üniversitede bilgisayar mühendisliği okuyorum ve gelecekte yazılım geliştirici olmak istiyorum', difficulty: 'hard', category: 'education' },
-  { text: 'Türkiye\'nin en güzel şehirlerinden biri olan İstanbul\'da yaşıyorum ve bu şehri çok seviyorum', difficulty: 'hard', category: 'geography' },
-  { text: 'Klasik müzik dinlemeyi seviyorum çünkü ruhumu dinlendiriyor ve hayal gücümü geliştiriyor', difficulty: 'hard', category: 'culture' },
-  { text: 'Yaz tatilinde deniz kenarında kitap okumak ve güneşlenmek en sevdiğim aktivitelerden biridir', difficulty: 'hard', category: 'leisure' },
-  { text: 'Türk mutfağının zenginliği dünya çapında tanınır ve her bölgenin kendine özgü lezzetleri vardır', difficulty: 'hard', category: 'culture' },
-  { text: 'Bilim ve teknoloji alanında çalışmak istiyorum çünkü geleceğin şekillenmesinde önemli rol oynayacağını düşünüyorum', difficulty: 'hard', category: 'education' },
-  { text: 'Doğada yürüyüş yapmak hem fiziksel hem de zihinsel sağlığımız için çok faydalı bir aktivitedir', difficulty: 'hard', category: 'health' },
-  { text: 'Türk edebiyatının zengin geçmişi ve günümüzdeki gelişimi beni her zaman etkilemiştir', difficulty: 'hard', category: 'culture' },
-];
+// Export categories and detailed sentence info for future use
+export const SENTENCE_CATEGORIES = sentencesData.categories;
+export const SENTENCES_DETAILED = sentencesData.sentences;
 
 /**
  * Generate a random cipher mapping for Turkish alphabet
@@ -341,6 +309,7 @@ export function initializeGame(difficulty: 'easy' | 'medium' | 'hard' = 'easy'):
     revealedLetters: new Set<string>(),
     userRevealedPositions: new Set<number>(),
     initialRevealedPositions: initialRevealedPositions,
+    wordRevealedPositions: wordRevealedPositions,
     mistakes: 0,
     maxMistakes: 3,
     timeLimit: difficultySettings.timeLimit,
@@ -636,6 +605,46 @@ export function getNextProgressiveSentence(progressiveState: ProgressiveGameStat
 }
 
 /**
+ * Get a specific sentence by ID
+ */
+export function getSentenceById(id: number): Sentence | null {
+  const sentence = SENTENCES_DETAILED.find(s => s.id === id);
+  if (!sentence) return null;
+  
+  return {
+    text: sentence.text,
+    difficulty: sentence.difficulty as 'easy' | 'medium' | 'hard',
+    category: sentence.category
+  };
+}
+
+/**
+ * Get sentences by category
+ */
+export function getSentencesByCategory(category: string): Sentence[] {
+  return SENTENCES_DETAILED
+    .filter(s => s.category === category)
+    .map(sentence => ({
+      text: sentence.text,
+      difficulty: sentence.difficulty as 'easy' | 'medium' | 'hard',
+      category: sentence.category
+    }));
+}
+
+/**
+ * Get sentences by difficulty
+ */
+export function getSentencesByDifficulty(difficulty: 'easy' | 'medium' | 'hard'): Sentence[] {
+  return SENTENCES_DETAILED
+    .filter(s => s.difficulty === difficulty)
+    .map(sentence => ({
+      text: sentence.text,
+      difficulty: sentence.difficulty as 'easy' | 'medium' | 'hard',
+      category: sentence.category
+    }));
+}
+
+/**
  * Record game result and update progressive state
  */
 export function recordGameResult(
@@ -662,4 +671,138 @@ export function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Initialize a game with a custom sentence
+ */
+export function initializeCustomGame(customSentence: Sentence): GameState {
+  const mapping = generateCipherMapping();
+  const cipherSentence = sentenceToCipher(customSentence.text, mapping);
+  
+  const difficultySettings = getDifficultySettings(customSentence.difficulty);
+  
+  // Get all letters from the sentence (without spaces) and normalize for processing
+  const allLetters = normalizeForProcessing(customSentence.text)
+    .split('')
+    .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+  
+  // Kelime bazlı kısıtlamalar kullanılacak - genel oran sistemi kaldırıldı
+  const totalLetters = allLetters.length;
+  
+  // Kelime bazında kısıtlama: Kelime uzunluğuna göre dinamik maksimum harf sayısı
+  const words = customSentence.text.split(' ').filter(word => word.trim() !== '');
+  const revealedLetters = new Set<string>();
+  const wordRevealedPositions = new Map<string, Set<number>>(); // Her kelime için ayrı pozisyon takibi
+  
+  // Her kelime için ayrı ayrı harf seç
+  words.forEach(word => {
+    const wordLetters = word
+      .toUpperCase()
+      .split('')
+      .filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+    
+    if (wordLetters.length === 0) return;
+    
+    const wordLengthCategory = getWordLengthCategory(wordLetters.length);
+    const maxLettersFromWord = difficultySettings.letterRevealLimits[wordLengthCategory as keyof typeof difficultySettings.letterRevealLimits];
+    
+    let lettersFromThisWord: number;
+    const revealProbability = difficultySettings.revealProbability;
+    
+    if (customSentence.difficulty === 'easy') {
+      lettersFromThisWord = maxLettersFromWord;
+    } else if (customSentence.difficulty === 'medium') {
+      if (wordLetters.length <= 4) {
+        const shouldReveal = Math.random() < revealProbability;
+        lettersFromThisWord = shouldReveal ? Math.min(1, maxLettersFromWord) : 0;
+      } else {
+        lettersFromThisWord = maxLettersFromWord;
+      }
+    } else {
+      if (wordLetters.length <= 4) {
+        const shouldReveal = Math.random() < revealProbability;
+        lettersFromThisWord = shouldReveal ? Math.min(1, maxLettersFromWord) : 0;
+      } else {
+        lettersFromThisWord = maxLettersFromWord;
+      }
+    }
+    
+    let selectedPositions: number[] = [];
+    
+    if (lettersFromThisWord > 0) {
+      const originalWordLetters = word.toUpperCase().split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-');
+      
+      const allPositions = originalWordLetters.map((_, index) => index);
+       
+      if (customSentence.difficulty === 'easy') {
+        const gameMechanics = gameSettings.gameMechanics;
+        const commonLetters = gameMechanics.commonLetters;
+        
+        // Kolay modda: Yaygın harfleri tercih et
+        const commonLetterPositions = originalWordLetters
+          .map((letter, index) => ({ letter, index }))
+          .filter(({ letter }) => commonLetters.includes(letter))
+          .map(({ index }) => index);
+        
+        if (commonLetterPositions.length > 0) {
+          const shuffled = [...commonLetterPositions].sort(() => Math.random() - 0.5);
+          selectedPositions = shuffled.slice(0, lettersFromThisWord);
+        } else {
+          // Yaygın harf yoksa rastgele seç
+          const shuffled = [...allPositions].sort(() => Math.random() - 0.5);
+          selectedPositions = shuffled.slice(0, lettersFromThisWord);
+        }
+      } else {
+        // Orta/Zor modda: Rastgele seç
+        const shuffled = [...allPositions].sort(() => Math.random() - 0.5);
+        selectedPositions = shuffled.slice(0, lettersFromThisWord);
+      }
+      
+      // Seçilen pozisyonları işle
+      selectedPositions.forEach(pos => {
+        const letter = originalWordLetters[pos];
+        revealedLetters.add(letter);
+        
+        // Kelime bazlı pozisyon takibi için kelimeyi anahtar olarak kullan
+        if (!wordRevealedPositions.has(word)) {
+          wordRevealedPositions.set(word, new Set());
+        }
+        wordRevealedPositions.get(word)!.add(pos);
+      });
+    }
+  });
+  
+  // İlk açılan harflerin pozisyonlarını hesapla (tüm cümle için)
+  const initialRevealedPositions = new Set<number>();
+  let globalPosition = 0;
+  
+  words.forEach(word => {
+    const wordPositions = wordRevealedPositions.get(word);
+    if (wordPositions) {
+      wordPositions.forEach(pos => {
+        initialRevealedPositions.add(globalPosition + pos);
+      });
+    }
+    globalPosition += word.toUpperCase().split('').filter(char => char !== ' ' && char !== '\'' && char !== '.' && char !== ',' && char !== '!' && char !== '?' && char !== ':' && char !== ';' && char !== '-').length;
+  });
+  
+  return {
+    originalSentence: customSentence.text,
+    cipherSentence,
+    letterMapping: mapping,
+    difficulty: customSentence.difficulty,
+    mistakes: 0,
+    maxMistakes: 3,
+    hintsUsed: 0,
+    maxHints: difficultySettings.hintCount,
+    timeLimit: difficultySettings.timeLimit,
+    startTime: Date.now(),
+    isGameOver: false,
+    isWon: false,
+    revealedLetters,
+    initialRevealedPositions,
+    userRevealedPositions: new Set(),
+    wordRevealedPositions: wordRevealedPositions
+  };
 }

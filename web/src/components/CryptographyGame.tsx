@@ -13,7 +13,9 @@ import {
   type GameResult,
   initializeProgressiveGame,
   getNextProgressiveSentence,
-  recordGameResult
+  recordGameResult,
+  getSentenceById,
+  initializeCustomGame
 } from '@/lib/cipher';
 import VirtualKeyboard from './VirtualKeyboard';
 
@@ -31,9 +33,10 @@ interface LetterBoxProps {
   isUserRevealed?: boolean;
   isWrongGuess?: boolean;
   isWrongGuessEffect?: boolean;
+  isJustRevealed?: boolean;
 }
 
-function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess, isWrongGuessEffect }: LetterBoxProps) {
+function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess, isWrongGuessEffect, isJustRevealed }: LetterBoxProps) {
   // Get color based on state
   const getCircleColor = () => {
     if (isWrongGuessEffect) return 'var(--game-red)';
@@ -54,19 +57,27 @@ function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGue
     return 'white';
   };
 
+  // Animation classes
+  const getAnimationClass = () => {
+    if (isWrongGuessEffect) return 'animate-wrong-guess';
+    if (isJustRevealed) return 'animate-reveal';
+    if (isSelected) return 'animate-pulse-slow';
+    return '';
+  };
+
   return (
     <div className="flex flex-col items-center gap-1">
       <button
         onClick={onClick}
-        className="game-circle"
+        className={`game-circle transition-all duration-300 ease-in-out transform hover:scale-105 ${getAnimationClass()}`}
         style={{
           backgroundColor: getCircleColor(),
           color: getTextColor(),
-          animation: isWrongGuessEffect ? 'pulse 1s ease-in-out' : 'none',
-          cursor: isRevealed ? 'not-allowed' : 'pointer'
+          cursor: isRevealed ? 'not-allowed' : 'pointer',
+          boxShadow: isSelected ? '0 0 20px rgba(59, 130, 246, 0.5)' : 'none'
         }}
       >
-        <span className="text-lg font-bold">
+        <span className="text-lg font-bold transition-all duration-200">
           {isRevealed ? letter : (isSelected ? (currentGuess || '_') : '_')}
         </span>
       </button>
@@ -101,11 +112,32 @@ export default function CryptographyGame() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [wrongGuessIndex, setWrongGuessIndex] = useState<number | null>(null);
   const [showVirtualKeyboard, setShowVirtualKeyboard] = useState(true); // Always show on web
+  const [justRevealedIndex, setJustRevealedIndex] = useState<number | null>(null);
+  const [userFoundLetters, setUserFoundLetters] = useState<Set<string>>(new Set()); // Kullanıcının doğru bulduğu harfler
 
   // Initialize game with progressive difficulty
   const startNewGame = useCallback(() => {
     const nextSentence = getNextProgressiveSentence(progressiveState);
     const newGame = initializeGame(nextSentence.difficulty);
+    setUserFoundLetters(new Set()); // Yeni oyunda kullanıcı bulunan harfleri temizle
+    setGameState(newGame);
+    setSelectedLetterIndex(null);
+    setCurrentGuess('');
+    setMessage('');
+    setTimeLeft(newGame.timeLimit);
+    
+    // Dispatch events for test screen
+    window.dispatchEvent(new CustomEvent('gameStateChange', { detail: newGame }));
+    window.dispatchEvent(new CustomEvent('progressiveStateChange', { detail: progressiveState }));
+  }, [progressiveState]);
+
+  // Initialize game with custom sentence
+  const startCustomGame = useCallback((sentenceId: number) => {
+    const customSentence = getSentenceById(sentenceId);
+    if (!customSentence) return;
+    
+    const newGame = initializeCustomGame(customSentence);
+    setUserFoundLetters(new Set()); // Yeni oyunda kullanıcı bulunan harfleri temizle
     setGameState(newGame);
     setSelectedLetterIndex(null);
     setCurrentGuess('');
@@ -124,6 +156,16 @@ export default function CryptographyGame() {
       setSelectedLetterIndex(0); // Will be corrected by the component logic
     }
   }, [gameState, selectedLetterIndex]);
+
+  // Fix selection cursor after hint usage
+  useEffect(() => {
+    if (gameState && selectedLetterIndex !== null) {
+      // Eğer seçili harf artık kullanıcı tarafından açılmışsa, seçimi kaldır
+      if (gameState.userRevealedPositions.has(selectedLetterIndex)) {
+        setSelectedLetterIndex(null);
+      }
+    }
+  }, [gameState?.userRevealedPositions, selectedLetterIndex]);
 
 
   // Handle game completion
@@ -181,12 +223,18 @@ export default function CryptographyGame() {
       startNewGame();
     };
 
+    const handleStartCustomGame = (event: CustomEvent<{ sentenceId: number }>) => {
+      startCustomGame(event.detail.sentenceId);
+    };
+
     window.addEventListener('resetGame', handleResetGame);
     window.addEventListener('startNewGame', handleStartNewGame);
+    window.addEventListener('startCustomGame', handleStartCustomGame as EventListener);
 
     return () => {
       window.removeEventListener('resetGame', handleResetGame);
       window.removeEventListener('startNewGame', handleStartNewGame);
+      window.removeEventListener('startCustomGame', handleStartCustomGame as EventListener);
     };
   }, [startNewGame]);
 
@@ -242,6 +290,9 @@ export default function CryptographyGame() {
         setTimeout(() => {
           handleGameCompletion(true);
         }, 100);
+      } else {
+        // Seçim imlecini otomatik olarak sonraki seçilebilir harfe taşı
+        // useEffect ile kontrol edilecek
       }
     }
   }, [gameState]);
@@ -317,12 +368,22 @@ export default function CryptographyGame() {
     const result = makeGuess(gameState, guess, gameState.difficulty, selectedLetterIndex);
     setGameState(result.newState);
     
-    // Show wrong guess effect if guess was incorrect
-    if (!result.success) {
+    // Show animations based on result
+    if (result.success) {
+      // Show correct guess animation
+      setJustRevealedIndex(selectedLetterIndex);
+      // Kullanıcının doğru bulduğu harfi ekle (sadece kullanıcı bulduğu için)
+      const guessedLetter = guess.toUpperCase();
+      setUserFoundLetters(prev => new Set([...prev, guessedLetter]));
+      setTimeout(() => {
+        setJustRevealedIndex(null);
+      }, 600);
+    } else {
+      // Show wrong guess effect
       setWrongGuessIndex(selectedLetterIndex);
       setTimeout(() => {
         setWrongGuessIndex(null);
-      }, 1000);
+      }, 800); // Animasyon süresi ile eşleştir
     }
     
     // Check if game is completed
@@ -693,6 +754,7 @@ export default function CryptographyGame() {
                         currentGuess={currentGuess}
                         isUserRevealed={gameState?.userRevealedPositions.has(box.index) && !gameState?.initialRevealedPositions.has(box.index)}
                         isWrongGuessEffect={wrongGuessIndex === box.index}
+                        isJustRevealed={justRevealedIndex === box.index}
                       />
                     );
                   })}
@@ -715,31 +777,70 @@ export default function CryptographyGame() {
 
         {/* Game Status - Only show failure message, success handled by popup */}
         {gameState.isGameOver && !gameState.isWon && (
-          <div className="text-center mt-8">
-            <div className="text-red-600">
-              <div className="text-4xl mb-4">😞</div>
-              <h2 className="text-2xl font-bold mb-2">Oyun Bitti!</h2>
-              <p className="text-lg mb-2">Çok fazla hata yaptınız.</p>
-              <p className="text-lg">Doğru cümle: <strong>{gameState.originalSentence}</strong></p>
+          <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="bg-gray-800 rounded-xl p-6 max-w-xs mx-4 text-center shadow-xl animate-bounce-in border border-gray-600">
+              {/* Game Over Icon */}
+              <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="text-2xl">😞</div>
+              </div>
+              
+              {/* Title */}
+              <h3 className="text-lg font-bold text-white mb-2 animate-fade-in-up">
+                Oyun Bitti!
+              </h3>
+              
+              {/* Message */}
+              <p className="text-gray-300 mb-4 text-sm animate-fade-in-up">
+                Çok fazla hata yaptınız.
+              </p>
+              
+              {/* Correct Answer */}
+              <div className="bg-gray-700 rounded-lg p-3 mb-6">
+                <p className="text-gray-300 text-sm font-medium">
+                  Doğru cümle:
+                </p>
+                <p className="text-white font-bold text-base mt-1">
+                  {gameState.originalSentence}
+                </p>
+              </div>
+              
+              {/* Action Button */}
+              <button
+                onClick={() => {
+                  startNewGame();
+                }}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
+              >
+                Yeni Oyun
+              </button>
             </div>
           </div>
         )}
       </main>
 
-      {/* Success Popup */}
+      {/* Success Dialog - Compact Design */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 text-center shadow-lg border-2 border-green-200">
-            <div className="text-4xl mb-3">🎉</div>
-            <h3 className="text-xl font-bold text-green-600 mb-2">
+        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 max-w-xs mx-4 text-center shadow-xl animate-bounce-in border border-green-400">
+            {/* Success Icon */}
+            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4 animate-glow">
+              <div className="text-2xl">🎉</div>
+            </div>
+            
+            {/* Title */}
+            <h3 className="text-lg font-bold text-white mb-2 animate-fade-in-up">
               Tebrikler!
             </h3>
-            <p className="text-gray-600 mb-4">
+            
+            {/* Subtitle */}
+            <p className="text-green-100 mb-6 text-sm animate-fade-in-up">
               Cümleyi başarıyla çözdünüz!
             </p>
+            
+            {/* Action Button */}
             <button
               onClick={handleNextGame}
-              className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              className="w-full bg-white text-green-600 px-4 py-3 rounded-lg font-bold text-base transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
             >
               Sonraki Oyun
             </button>
@@ -747,29 +848,41 @@ export default function CryptographyGame() {
         </div>
       )}
 
-      {/* New Game Confirmation Modal */}
+      {/* New Game Confirmation Dialog - Compact Design */}
       {showNewGameConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-xs mx-4 shadow-xl border border-gray-700 animate-bounce-in">
+            {/* Warning Icon */}
+            <div className="w-10 h-10 bg-orange-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            
+            {/* Title */}
+            <h3 className="text-base font-bold text-white mb-3 text-center animate-fade-in-up">
               Yeni Oyun Başlat
             </h3>
-            <p className="text-gray-600 mb-6">
+            
+            {/* Message */}
+            <p className="text-gray-300 mb-6 text-center text-sm animate-fade-in-up">
               Mevcut oyun silinecek ve yeni bir oyun başlatılacak. Emin misiniz?
             </p>
-            <div className="flex space-x-3">
+            
+            {/* Action Buttons */}
+            <div className="space-y-2">
               <button
                 onClick={() => {
                   setShowNewGameConfirm(false);
                   startNewGame();
                 }}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
               >
                 Evet, Başlat
               </button>
               <button
                 onClick={() => setShowNewGameConfirm(false)}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
               >
                 İptal
               </button>
@@ -785,10 +898,10 @@ export default function CryptographyGame() {
           <button 
             onClick={handleHint}
             disabled={!gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints}
-            className={`px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors ${
+            className={`px-6 py-3 rounded-xl flex items-center space-x-2 transition-all duration-300 transform hover:scale-105 active:scale-95 ${
               !gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg'
+                : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl'
             }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -800,7 +913,7 @@ export default function CryptographyGame() {
           {/* New Game Button */}
           <button
             onClick={() => setShowNewGameConfirm(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors shadow-lg"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -816,6 +929,7 @@ export default function CryptographyGame() {
           onKeyPress={handleVirtualKeyPress}
           onDirectionPress={handleDirectionPress}
           disabled={!gameState || gameState.isGameOver}
+          correctLetters={userFoundLetters}
         />
       </div>
     </div>

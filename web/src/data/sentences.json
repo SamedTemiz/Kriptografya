@@ -1,0 +1,500 @@
+{
+  "categories": {
+    "daily": {
+      "name": "Günlük Yaşam",
+      "description": "Günlük hayattan cümleler",
+      "color": "#3B82F6"
+    },
+    "nature": {
+      "name": "Doğa",
+      "description": "Doğa ve çevre ile ilgili cümleler",
+      "color": "#10B981"
+    },
+    "family": {
+      "name": "Aile",
+      "description": "Aile ve yakın çevre ile ilgili cümleler",
+      "color": "#F59E0B"
+    },
+    "education": {
+      "name": "Eğitim",
+      "description": "Okul, öğrenme ve eğitim ile ilgili cümleler",
+      "color": "#8B5CF6"
+    },
+    "entertainment": {
+      "name": "Eğlence",
+      "description": "Sinema, müzik, oyun gibi eğlence cümleleri",
+      "color": "#EC4899"
+    },
+    "technology": {
+      "name": "Teknoloji",
+      "description": "Bilgisayar, telefon ve teknoloji cümleleri",
+      "color": "#06B6D4"
+    },
+    "health": {
+      "name": "Sağlık",
+      "description": "Sağlık, spor ve wellness cümleleri",
+      "color": "#EF4444"
+    },
+    "culture": {
+      "name": "Kültür",
+      "description": "Türk kültürü, gelenekler ve sanat",
+      "color": "#84CC16"
+    },
+    "social": {
+      "name": "Sosyal",
+      "description": "Arkadaşlık, sosyal aktiviteler",
+      "color": "#F97316"
+    },
+    "weather": {
+      "name": "Hava Durumu",
+      "description": "Hava durumu ve mevsimler",
+      "color": "#6366F1"
+    },
+    "geography": {
+      "name": "Coğrafya",
+      "description": "Şehirler, ülkeler ve coğrafi yerler",
+      "color": "#14B8A6"
+    },
+    "leisure": {
+      "name": "Boş Zaman",
+      "description": "Hobi ve boş zaman aktiviteleri",
+      "color": "#A855F7"
+    },
+    "animals": {
+      "name": "Hayvanlar",
+      "description": "Hayvanlar ve doğal yaşam",
+      "color": "#22C55E"
+    }
+  },
+  "sentences": [
+    {
+      "id": 1,
+      "text": "Güneş doğuyor",
+      "difficulty": "easy",
+      "category": "nature",
+      "wordCount": 2,
+      "letterCount": 12,
+      "hasSpecialChars": false,
+      "description": "Doğa ile ilgili basit bir gözlem",
+      "tags": ["doğa", "güneş", "sabah"]
+    },
+    {
+      "id": 2,
+      "text": "Kedi uyuyor",
+      "difficulty": "easy",
+      "category": "animals",
+      "wordCount": 2,
+      "letterCount": 10,
+      "hasSpecialChars": false,
+      "description": "Evcil hayvan davranışı",
+      "tags": ["kedi", "uyku", "evcil"]
+    },
+    {
+      "id": 3,
+      "text": "Su içiyorum",
+      "difficulty": "easy",
+      "category": "daily",
+      "wordCount": 2,
+      "letterCount": 10,
+      "hasSpecialChars": false,
+      "description": "Günlük yaşam aktivitesi",
+      "tags": ["su", "içmek", "günlük"]
+    },
+    {
+      "id": 4,
+      "text": "Kitap okuyorum",
+      "difficulty": "easy",
+      "category": "education",
+      "wordCount": 2,
+      "letterCount": 12,
+      "hasSpecialChars": false,
+      "description": "Öğrenme ve eğitim aktivitesi",
+      "tags": ["kitap", "okumak", "eğitim"]
+    },
+    {
+      "id": 5,
+      "text": "Müzik dinliyorum",
+      "difficulty": "easy",
+      "category": "entertainment",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Eğlence ve boş zaman aktivitesi",
+      "tags": ["müzik", "dinlemek", "eğlence"]
+    },
+    {
+      "id": 6,
+      "text": "Yemek yiyorum",
+      "difficulty": "easy",
+      "category": "daily",
+      "wordCount": 2,
+      "letterCount": 12,
+      "hasSpecialChars": false,
+      "description": "Temel yaşam ihtiyacı",
+      "tags": ["yemek", "yemek", "günlük"]
+    },
+    {
+      "id": 7,
+      "text": "Arkadaşım geldi",
+      "difficulty": "easy",
+      "category": "social",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Sosyal ilişki ve ziyaret",
+      "tags": ["arkadaş", "gelmek", "sosyal"]
+    },
+    {
+      "id": 8,
+      "text": "Ev temizliyorum",
+      "difficulty": "easy",
+      "category": "daily",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Ev işleri ve temizlik",
+      "tags": ["ev", "temizlik", "günlük"]
+    },
+    {
+      "id": 9,
+      "text": "Çiçek suluyorum",
+      "difficulty": "easy",
+      "category": "nature",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Bitki bakımı ve doğa",
+      "tags": ["çiçek", "sulamak", "doğa"]
+    },
+    {
+      "id": 10,
+      "text": "Telefon çalıyor",
+      "difficulty": "easy",
+      "category": "technology",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Teknoloji ve iletişim",
+      "tags": ["telefon", "çalmak", "teknoloji"]
+    },
+    {
+      "id": 11,
+      "text": "Bahçe güzeldir",
+      "difficulty": "easy",
+      "category": "nature",
+      "wordCount": 2,
+      "letterCount": 13,
+      "hasSpecialChars": false,
+      "description": "Doğa güzelliği ve estetik",
+      "tags": ["bahçe", "güzel", "doğa"]
+    },
+    {
+      "id": 12,
+      "text": "Sokak sessizdir",
+      "difficulty": "easy",
+      "category": "daily",
+      "wordCount": 2,
+      "letterCount": 14,
+      "hasSpecialChars": false,
+      "description": "Şehir yaşamı ve atmosfer",
+      "tags": ["sokak", "sessiz", "şehir"]
+    },
+    {
+      "id": 13,
+      "text": "Deniz mavidir",
+      "difficulty": "easy",
+      "category": "nature",
+      "wordCount": 2,
+      "letterCount": 12,
+      "hasSpecialChars": false,
+      "description": "Doğa renkleri ve deniz",
+      "tags": ["deniz", "mavi", "doğa"]
+    },
+    {
+      "id": 14,
+      "text": "Kuş uçuyor",
+      "difficulty": "easy",
+      "category": "animals",
+      "wordCount": 2,
+      "letterCount": 10,
+      "hasSpecialChars": false,
+      "description": "Hayvan davranışı ve hareket",
+      "tags": ["kuş", "uçmak", "hayvan"]
+    },
+    {
+      "id": 15,
+      "text": "Ağaç yüksektir",
+      "difficulty": "easy",
+      "category": "nature",
+      "wordCount": 2,
+      "letterCount": 13,
+      "hasSpecialChars": false,
+      "description": "Doğa ve boyut gözlemi",
+      "tags": ["ağaç", "yüksek", "doğa"]
+    },
+    {
+      "id": 16,
+      "text": "Bugün hava çok güzel",
+      "difficulty": "medium",
+      "category": "weather",
+      "wordCount": 4,
+      "letterCount": 20,
+      "hasSpecialChars": false,
+      "description": "Hava durumu değerlendirmesi",
+      "tags": ["hava", "güzel", "bugün"]
+    },
+    {
+      "id": 17,
+      "text": "Yarın sinemaya gideceğim",
+      "difficulty": "medium",
+      "category": "entertainment",
+      "wordCount": 3,
+      "letterCount": 22,
+      "hasSpecialChars": false,
+      "description": "Gelecek planı ve eğlence",
+      "tags": ["sinema", "gitmek", "yarın"]
+    },
+    {
+      "id": 18,
+      "text": "Annem lezzetli yemek yaptı",
+      "difficulty": "medium",
+      "category": "family",
+      "wordCount": 4,
+      "letterCount": 23,
+      "hasSpecialChars": false,
+      "description": "Aile ve yemek kültürü",
+      "tags": ["anne", "yemek", "lezzetli"]
+    },
+    {
+      "id": 19,
+      "text": "Okulda matematik dersi var",
+      "difficulty": "medium",
+      "category": "education",
+      "wordCount": 4,
+      "letterCount": 24,
+      "hasSpecialChars": false,
+      "description": "Eğitim ve ders programı",
+      "tags": ["okul", "matematik", "ders"]
+    },
+    {
+      "id": 20,
+      "text": "Parkta çocuklar oynuyor",
+      "difficulty": "medium",
+      "category": "social",
+      "wordCount": 3,
+      "letterCount": 20,
+      "hasSpecialChars": false,
+      "description": "Sosyal aktivite ve çocuklar",
+      "tags": ["park", "çocuk", "oyun"]
+    },
+    {
+      "id": 21,
+      "text": "Kitapçıdan yeni roman aldım",
+      "difficulty": "medium",
+      "category": "education",
+      "wordCount": 4,
+      "letterCount": 25,
+      "hasSpecialChars": false,
+      "description": "Kitap satın alma ve okuma",
+      "tags": ["kitap", "roman", "satın almak"]
+    },
+    {
+      "id": 22,
+      "text": "Kahve içmeyi çok seviyorum",
+      "difficulty": "medium",
+      "category": "daily",
+      "wordCount": 4,
+      "letterCount": 23,
+      "hasSpecialChars": false,
+      "description": "Kişisel tercih ve günlük alışkanlık",
+      "tags": ["kahve", "içmek", "sevmek"]
+    },
+    {
+      "id": 23,
+      "text": "Spor yapmak sağlıklı",
+      "difficulty": "medium",
+      "category": "health",
+      "wordCount": 3,
+      "letterCount": 18,
+      "hasSpecialChars": false,
+      "description": "Sağlık ve fitness bilgisi",
+      "tags": ["spor", "sağlık", "fitness"]
+    },
+    {
+      "id": 24,
+      "text": "Müze gezisi çok eğlenceli",
+      "difficulty": "medium",
+      "category": "culture",
+      "wordCount": 3,
+      "letterCount": 22,
+      "hasSpecialChars": false,
+      "description": "Kültürel aktivite ve deneyim",
+      "tags": ["müze", "gezi", "eğlence"]
+    },
+    {
+      "id": 25,
+      "text": "Arkadaşlarımla piknik yapacağız",
+      "difficulty": "medium",
+      "category": "social",
+      "wordCount": 3,
+      "letterCount": 26,
+      "hasSpecialChars": false,
+      "description": "Sosyal plan ve doğa aktivitesi",
+      "tags": ["arkadaş", "piknik", "plan"]
+    },
+    {
+      "id": 26,
+      "text": "Türk kahvesi çok lezzetli",
+      "difficulty": "medium",
+      "category": "culture",
+      "wordCount": 3,
+      "letterCount": 22,
+      "hasSpecialChars": false,
+      "description": "Türk kültürü ve geleneksel içecek",
+      "tags": ["türk kahvesi", "lezzet", "kültür"]
+    },
+    {
+      "id": 27,
+      "text": "İstanbul büyük bir şehir",
+      "difficulty": "medium",
+      "category": "geography",
+      "wordCount": 4,
+      "letterCount": 21,
+      "hasSpecialChars": false,
+      "description": "Coğrafi bilgi ve şehir tanıtımı",
+      "tags": ["istanbul", "şehir", "büyük"]
+    },
+    {
+      "id": 28,
+      "text": "Kış ayları soğuk geçer",
+      "difficulty": "medium",
+      "category": "weather",
+      "wordCount": 4,
+      "letterCount": 20,
+      "hasSpecialChars": false,
+      "description": "Mevsim bilgisi ve hava durumu",
+      "tags": ["kış", "soğuk", "mevsim"]
+    },
+    {
+      "id": 29,
+      "text": "Akşam yemeği hazırladık",
+      "difficulty": "medium",
+      "category": "daily",
+      "wordCount": 3,
+      "letterCount": 20,
+      "hasSpecialChars": false,
+      "description": "Günlük yaşam ve yemek hazırlığı",
+      "tags": ["akşam", "yemek", "hazırlamak"]
+    },
+    {
+      "id": 30,
+      "text": "Müzik dinlemek güzeldir",
+      "difficulty": "medium",
+      "category": "entertainment",
+      "wordCount": 3,
+      "letterCount": 20,
+      "hasSpecialChars": false,
+      "description": "Müzik zevki ve estetik değerlendirme",
+      "tags": ["müzik", "dinlemek", "güzel"]
+    },
+    {
+      "id": 31,
+      "text": "Üniversitede bilgisayar mühendisliği okuyorum ve gelecekte yazılım geliştirici olmak istiyorum",
+      "difficulty": "hard",
+      "category": "education",
+      "wordCount": 11,
+      "letterCount": 75,
+      "hasSpecialChars": false,
+      "description": "Eğitim hedefi ve kariyer planı",
+      "tags": ["üniversite", "mühendislik", "kariyer"]
+    },
+    {
+      "id": 32,
+      "text": "Türkiye'nin en güzel şehirlerinden biri olan İstanbul'da yaşıyorum ve bu şehri çok seviyorum",
+      "difficulty": "hard",
+      "category": "geography",
+      "wordCount": 14,
+      "letterCount": 74,
+      "hasSpecialChars": true,
+      "description": "Şehir sevgisi ve coğrafi tanıtım",
+      "tags": ["türkiye", "istanbul", "şehir"]
+    },
+    {
+      "id": 33,
+      "text": "Klasik müzik dinlemeyi seviyorum çünkü ruhumu dinlendiriyor ve hayal gücümü geliştiriyor",
+      "difficulty": "hard",
+      "category": "culture",
+      "wordCount": 12,
+      "letterCount": 69,
+      "hasSpecialChars": false,
+      "description": "Müzik tercihi ve psikolojik etki",
+      "tags": ["klasik müzik", "ruh", "hayal"]
+    },
+    {
+      "id": 34,
+      "text": "Yaz tatilinde deniz kenarında kitap okumak ve güneşlenmek en sevdiğim aktivitelerden biridir",
+      "difficulty": "hard",
+      "category": "leisure",
+      "wordCount": 13,
+      "letterCount": 76,
+      "hasSpecialChars": false,
+      "description": "Tatil aktiviteleri ve kişisel tercih",
+      "tags": ["tatil", "deniz", "kitap"]
+    },
+    {
+      "id": 35,
+      "text": "Türk mutfağının zenginliği dünya çapında tanınır ve her bölgenin kendine özgü lezzetleri vardır",
+      "difficulty": "hard",
+      "category": "culture",
+      "wordCount": 13,
+      "letterCount": 76,
+      "hasSpecialChars": false,
+      "description": "Türk mutfağı ve kültürel zenginlik",
+      "tags": ["türk mutfağı", "lezzet", "kültür"]
+    },
+    {
+      "id": 36,
+      "text": "Bilim ve teknoloji alanında çalışmak istiyorum çünkü geleceğin şekillenmesinde önemli rol oynayacağını düşünüyorum",
+      "difficulty": "hard",
+      "category": "technology",
+      "wordCount": 17,
+      "letterCount": 93,
+      "hasSpecialChars": false,
+      "description": "Kariyer hedefi ve teknoloji vizyonu",
+      "tags": ["bilim", "teknoloji", "gelecek"]
+    },
+    {
+      "id": 37,
+      "text": "Doğada yürüyüş yapmak hem fiziksel hem de zihinsel sağlığımız için çok faydalı bir aktivitedir",
+      "difficulty": "hard",
+      "category": "health",
+      "wordCount": 14,
+      "letterCount": 78,
+      "hasSpecialChars": false,
+      "description": "Sağlık bilgisi ve doğa aktivitesi",
+      "tags": ["doğa", "yürüyüş", "sağlık"]
+    },
+    {
+      "id": 38,
+      "text": "Türk edebiyatının zengin geçmişi ve günümüzdeki gelişimi beni her zaman etkilemiştir",
+      "difficulty": "hard",
+      "category": "culture",
+      "wordCount": 11,
+      "letterCount": 68,
+      "hasSpecialChars": false,
+      "description": "Edebiyat sevgisi ve kültürel değerlendirme",
+      "tags": ["edebiyat", "kültür", "tarih"]
+    },
+    {
+        "id": 39,
+        "text": "Hasanı götten çatır çutur.",
+        "difficulty": "hard",
+        "category": "culture",
+        "wordCount": 4,
+        "letterCount": 22,
+        "hasSpecialChars": false,
+        "description": "Edebiyat sevgisi ve kültürel değerlendirme",
+        "tags": ["edebiyat", "kültür", "tarih"]
+    }
+  ]
+}
