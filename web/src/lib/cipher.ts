@@ -537,6 +537,11 @@ function getHintStrength(
     return 'strong';
   }
   
+  // Hard mode always gives weak hints (only 1 letter)
+  if (difficulty === 'hard') {
+    return 'weak';
+  }
+  
   // For medium/hard, consider progressive system
   if (progressiveState) {
     const sentenceNumber = progressiveState.currentSentenceNumber;
@@ -558,7 +563,7 @@ function getHintStrength(
     }
   }
   
-  // Default to weak hint for medium/hard
+  // Default to weak hint for medium
   return 'weak';
 }
 

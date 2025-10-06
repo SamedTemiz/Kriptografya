@@ -15,6 +15,7 @@ import {
   getNextProgressiveSentence,
   recordGameResult
 } from '@/lib/cipher';
+import VirtualKeyboard from './VirtualKeyboard';
 
 interface CryptographyGameProps {
   // Progressive difficulty system - no manual difficulty selection
@@ -33,35 +34,58 @@ interface LetterBoxProps {
 }
 
 function LetterBox({ letter, number, isRevealed, onClick, isSelected, currentGuess, isUserRevealed, isWrongGuess, isWrongGuessEffect }: LetterBoxProps) {
+  // Get color based on state
+  const getCircleColor = () => {
+    if (isWrongGuessEffect) return 'var(--game-red)';
+    if (isRevealed && isUserRevealed && !isWrongGuess) return 'var(--game-green)';
+    if (isRevealed && isUserRevealed && isWrongGuess) return 'var(--game-red)';
+    if (isRevealed) return 'var(--game-light-gray)';
+    if (isSelected) return 'var(--game-blue)';
+    return 'var(--game-light-gray)';
+  };
+
+  const getTextColor = () => {
+    if (isRevealed && !isUserRevealed) return 'var(--mobile-text-primary)';
+    return 'white';
+  };
+
+  const getNumberColor = () => {
+    if (isRevealed && !isUserRevealed) return 'var(--mobile-text-primary)';
+    return 'white';
+  };
+
   return (
-    <div className="flex flex-col items-center h-16">
+    <div className="flex flex-col items-center gap-1">
       <button
         onClick={onClick}
-        className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all duration-300 ${
-          isWrongGuessEffect
-            ? 'bg-red-200 border-red-600 text-red-800 animate-pulse' // Yanlış tahmin efekti - KIRMIZI PULSE
-            : isRevealed && isUserRevealed && !isWrongGuess
-            ? 'bg-green-100 border-green-500 text-green-700' // Kullanıcı doğru girişi - YEŞİL
-            : isRevealed && isUserRevealed && isWrongGuess
-            ? 'bg-red-100 border-red-500 text-red-700' // Kullanıcı yanlış girişi - KIRMIZI
-            : isRevealed
-            ? 'bg-white border-gray-300 text-gray-600' // Oyun başında açılan harf - NORMAL
-            : isSelected
-            ? 'bg-blue-50 border-blue-500 text-blue-700'
-            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-        }`}
+        className="game-circle"
+        style={{
+          backgroundColor: getCircleColor(),
+          color: getTextColor(),
+          animation: isWrongGuessEffect ? 'pulse 1s ease-in-out' : 'none',
+          cursor: isRevealed ? 'not-allowed' : 'pointer'
+        }}
       >
-        {isRevealed ? letter : (isSelected ? (currentGuess || '_') : '_')}
+        <span className="text-lg font-bold">
+          {isRevealed ? letter : (isSelected ? (currentGuess || '_') : '_')}
+        </span>
       </button>
-      {/* Her zaman aynı yükseklikte alan ayır */}
-      <div className="h-6 flex items-center justify-center">
-        {/* Sayı gösterimi: Sadece kapalı harfler ve kullanıcı girişleri için */}
-        {(!isRevealed || (isRevealed && isUserRevealed)) && (
-          <div className="text-xs text-gray-500 font-mono">
-            {number}
-          </div>
-        )}
-      </div>
+      {/* Show number below the box */}
+      {(!isRevealed || (isRevealed && isUserRevealed)) && (
+        <div 
+          className="text-xs font-bold" 
+          style={{ 
+            color: 'var(--mobile-text-secondary)',
+            textAlign: 'center',
+            minHeight: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          {number}
+        </div>
+      )}
     </div>
   );
 }
@@ -76,6 +100,7 @@ export default function CryptographyGame() {
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [wrongGuessIndex, setWrongGuessIndex] = useState<number | null>(null);
+  const [showVirtualKeyboard, setShowVirtualKeyboard] = useState(true); // Always show on web
 
   // Initialize game with progressive difficulty
   const startNewGame = useCallback(() => {
@@ -91,6 +116,15 @@ export default function CryptographyGame() {
     window.dispatchEvent(new CustomEvent('gameStateChange', { detail: newGame }));
     window.dispatchEvent(new CustomEvent('progressiveStateChange', { detail: progressiveState }));
   }, [progressiveState]);
+
+  // Auto-select first available letter when game starts
+  useEffect(() => {
+    if (gameState && !gameState.isGameOver && selectedLetterIndex === null) {
+      // Trigger a re-render to select first letter
+      setSelectedLetterIndex(0); // Will be corrected by the component logic
+    }
+  }, [gameState, selectedLetterIndex]);
+
 
   // Handle game completion
   const handleGameCompletion = useCallback((isWon: boolean) => {
@@ -215,14 +249,147 @@ export default function CryptographyGame() {
   // Handle letter box click
   const handleLetterClick = (index: number) => {
     if (!gameState || gameState.isGameOver) return;
+    
+    // Check if this letter is already revealed (correctly guessed)
+    const letterBoxes = getLetterBoxes();
+    const targetBox = letterBoxes.find(box => box.index === index);
+    
+    if (targetBox && targetBox.isRevealed) {
+      // Don't allow clicking on already revealed letters
+      return;
+    }
+    
     setSelectedLetterIndex(index);
+    setCurrentGuess('');
+    // Keyboard is always visible, no need to show/hide
+  };
+
+  // Handle virtual keyboard input
+  const handleVirtualKeyPress = (key: string) => {
+    if (!gameState || gameState.isGameOver) return;
+    
+    // If no letter is selected, select the first available letter
+    if (selectedLetterIndex === null) {
+      const availableLetters = letterBoxes.filter(box => !box.isSpace && !box.isRevealed);
+      if (availableLetters.length > 0) {
+        setSelectedLetterIndex(availableLetters[0].index);
+      } else {
+        return; // No available letters
+      }
+    }
+    
+    // Process the letter directly
+    if (key.length === 1 && /[A-ZÇĞIİÖŞÜ]/.test(key)) {
+      processGuess(key);
+    }
+  };
+
+  // Handle direction button press
+  const handleDirectionPress = (direction: 'left' | 'right') => {
+    if (!gameState || gameState.isGameOver) return;
+    
+    const availableLetters = letterBoxes.filter(box => !box.isSpace && !box.isRevealed);
+    if (availableLetters.length === 0) return;
+    
+    if (selectedLetterIndex === null) {
+      // If no letter selected, select first available
+      setSelectedLetterIndex(availableLetters[0].index);
+      return;
+    }
+    
+    const currentIndex = availableLetters.findIndex(box => box.index === selectedLetterIndex);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'left') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : availableLetters.length - 1;
+    } else {
+      newIndex = currentIndex < availableLetters.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    setSelectedLetterIndex(availableLetters[newIndex].index);
+  };
+
+  // Process guess with delay for visual feedback
+  const processGuess = (guess: string) => {
+    if (!gameState || selectedLetterIndex === null) return;
+    
+    const result = makeGuess(gameState, guess, gameState.difficulty, selectedLetterIndex);
+    setGameState(result.newState);
+    
+    // Show wrong guess effect if guess was incorrect
+    if (!result.success) {
+      setWrongGuessIndex(selectedLetterIndex);
+      setTimeout(() => {
+        setWrongGuessIndex(null);
+      }, 1000);
+    }
+    
+    // Check if game is completed
+    if (result.newState.isGameOver) {
+      if (result.newState.isWon) {
+        handleGameCompletion(true);
+      } else {
+        handleGameCompletion(false);
+      }
+    }
+    
+    // Handle cursor movement after guess
+    if (result.success) {
+      // Correct guess - move to next empty box
+      setTimeout(() => {
+        const currentLetterBoxes = getLetterBoxes();
+        
+        // Find current position in ALL letter boxes (not just available ones)
+        const currentBoxIndex = currentLetterBoxes.findIndex(box => box.index === selectedLetterIndex);
+        
+        if (currentBoxIndex !== -1) {
+          // Look for next empty box to the right
+          let nextEmptyIndex = -1;
+          for (let i = currentBoxIndex + 1; i < currentLetterBoxes.length; i++) {
+            const box = currentLetterBoxes[i];
+            if (!box.isSpace && !box.isRevealed) {
+              nextEmptyIndex = box.index;
+              break;
+            }
+          }
+          
+          // If no empty box found to the right, wrap around to the beginning
+          if (nextEmptyIndex === -1) {
+            for (let i = 0; i < currentBoxIndex; i++) {
+              const box = currentLetterBoxes[i];
+              if (!box.isSpace && !box.isRevealed) {
+                nextEmptyIndex = box.index;
+                break;
+              }
+            }
+          }
+          
+          // Set the next empty box as selected
+          if (nextEmptyIndex !== -1) {
+            setSelectedLetterIndex(nextEmptyIndex);
+          }
+        }
+      }, 100);
+    }
+    // Wrong guess - keep selection box on current position (no action needed)
+    
     setCurrentGuess('');
   };
 
   // Handle keyboard input
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (!gameState || gameState.isGameOver || selectedLetterIndex === null) return;
+      if (!gameState || gameState.isGameOver) return;
+      
+      // Handle arrow keys for cursor movement
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault(); // Prevent page scrolling
+        handleDirectionPress(e.key === 'ArrowLeft' ? 'left' : 'right');
+        return;
+      }
+      
+      if (selectedLetterIndex === null) return;
       
       // Normalize for display (keep Turkish characters)
       let key = e.key.toUpperCase();
@@ -236,36 +403,8 @@ export default function CryptographyGame() {
       
       // Only accept letters (A-Z, Turkish characters)
       if (key.length === 1 && /[A-ZÇĞIİÖŞÜ]/.test(key)) {
-        // Show the Turkish character immediately
-        setCurrentGuess(key);
-        
-        // Then process after a short delay to show the letter
-        setTimeout(() => {
-          // Use the Turkish character directly (no normalization)
-          const result = makeGuess(gameState, key, gameState.difficulty, selectedLetterIndex);
-          setGameState(result.newState);
-          
-          // Show wrong guess effect if guess was incorrect
-          if (!result.success) {
-            setWrongGuessIndex(selectedLetterIndex);
-            // Clear the effect after 1 second
-            setTimeout(() => {
-              setWrongGuessIndex(null);
-            }, 1000);
-          }
-          
-          // Check if game is completed
-          if (result.newState.isGameOver) {
-            if (result.newState.isWon) {
-              handleGameCompletion(true);
-            } else {
-              handleGameCompletion(false);
-            }
-          }
-          
-          setSelectedLetterIndex(null);
-          setCurrentGuess('');
-        }, 300);
+        // Use the same logic as virtual keyboard
+        processGuess(key);
       }
     };
 
@@ -332,7 +471,7 @@ export default function CryptographyGame() {
         
         boxes.push({
           letter,
-          number: number || 0,
+          number: number || null,
           isRevealed,
           index: letterIndex,
           isWordStart: i === 0,
@@ -359,12 +498,95 @@ export default function CryptographyGame() {
     return boxes;
   };
 
+  // Get letter boxes from a specific game state
+  const getLetterBoxesFromState = (state: GameState) => {
+    if (!state) return [];
+    
+    // Orijinal cümleyi kelimelere ayır
+    const words = state.originalSentence.split(' ');
+    
+    let letterIndex = 0;
+    const boxes: Array<{
+      letter: string;
+      number: number | null;
+      isRevealed: boolean;
+      index: number;
+      isWordStart?: boolean;
+      isWordEnd?: boolean;
+      isSpace?: boolean;
+      wordIndex?: number;
+    }> = [];
+    
+    words.forEach((word, wordIndex) => {
+      // Her kelime için harfleri işle
+      for (let i = 0; i < word.length; i++) {
+        const char = word[i];
+        
+        // Özel karakterleri atla (apostrof, nokta, virgül vs.)
+        if (char === '\'' || char === '.' || char === ',' || char === '!' || char === '?' || char === ':' || char === ';' || char === '-') {
+          continue; // Bu karakterler için kutu oluşturma
+        }
+        
+        // Keep Turkish characters for display
+        const letter = char
+          .replace(/i/g, 'İ')  // i → İ (Turkish uppercase i)
+          .replace(/ı/g, 'I')  // ı → I (Turkish uppercase ı)
+          .toUpperCase();
+        // Try Turkish character first, then normalized version
+        let number = state.letterMapping.get(letter);
+        if (!number) {
+          const normalizedLetter = letter
+            .replace(/İ/g, 'I')
+            .replace(/ı/g, 'I')
+            .replace(/i/g, 'I')
+            .replace(/Ğ/g, 'G')
+            .replace(/ğ/g, 'G')
+            .replace(/Ü/g, 'U')
+            .replace(/ü/g, 'U')
+            .replace(/Ş/g, 'S')
+            .replace(/ş/g, 'S')
+            .replace(/Ö/g, 'O')
+            .replace(/ö/g, 'O')
+            .replace(/Ç/g, 'C')
+            .replace(/ç/g, 'C');
+          number = state.letterMapping.get(normalizedLetter);
+        }
+        
+        boxes.push({
+          letter,
+          number: number || null,
+          isRevealed: state.initialRevealedPositions.has(letterIndex) || state.userRevealedPositions.has(letterIndex),
+          index: letterIndex,
+          isWordStart: i === 0,
+          isWordEnd: i === word.length - 1,
+          wordIndex
+        });
+        letterIndex++;
+      }
+      
+      // Kelime sonrası boşluk ekle (son kelime değilse)
+      if (wordIndex < words.length - 1) {
+        boxes.push({
+          letter: ' ',
+          number: null,
+          isRevealed: true,
+          index: letterIndex,
+          isSpace: true,
+          wordIndex: -1
+        });
+        letterIndex++;
+      }
+    });
+    
+    return boxes;
+  };
+
   if (!gameState) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4">Yükleniyor...</p>
+      <div className="mobile-container flex items-center justify-center">
+        <div className="text-center text-gray-600">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-lg">Yükleniyor...</p>
         </div>
       </div>
     );
@@ -372,36 +594,56 @@ export default function CryptographyGame() {
 
   const letterBoxes = getLetterBoxes();
 
+  // Auto-select first available letter when game starts (after letterBoxes is defined)
+  if (gameState && !gameState.isGameOver && selectedLetterIndex === null) {
+    const availableLetters = letterBoxes.filter(box => !box.isSpace && !box.isRevealed);
+    if (availableLetters.length > 0) {
+      setSelectedLetterIndex(availableLetters[0].index);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
-      <header className="bg-gray-900 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <button className="text-white hover:text-gray-300 mr-4">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </button>
-          <h1 className="text-white text-xl font-semibold">
-            {gameState.isGameOver ? 'Oyun Bitti' : 'Kriptografya'}
+    <div className="mobile-container flex flex-col">
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="flex items-center gap-3">
+          {/* Game Title */}
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--mobile-text-primary)' }}>
+            Kriptografya
           </h1>
         </div>
         
-        <div className="flex items-center">
-          {/* Progressive difficulty system - no manual settings */}
+        {/* Game Stats Display */}
+        <div className="score-display">
+          <div className="flex items-center gap-4 text-sm">
+            {gameState.timeLimit > 0 && (
+              <div className="text-center">
+                <div className="text-xs" style={{ color: 'var(--mobile-text-secondary)' }}>SÜRE</div>
+                <div className="font-bold" style={{ color: 'var(--mobile-text-primary)' }}>{timeLeft > 0 ? formatTime(timeLeft) : '00:00'}</div>
+              </div>
+            )}
+            <div className="text-center">
+              <div className="text-xs" style={{ color: 'var(--mobile-text-secondary)' }}>CÜMLE</div>
+              <div className="font-bold" style={{ color: 'var(--mobile-text-primary)' }}>{progressiveState.currentSentenceNumber}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs" style={{ color: 'var(--mobile-text-secondary)' }}>HARF</div>
+              <div className="font-bold" style={{ color: 'var(--mobile-text-primary)' }}>{letterBoxes.filter(b => !b.isSpace).length}</div>
+            </div>
+          </div>
         </div>
       </header>
 
 
       {/* Main Content */}
-      <main className="flex-1 bg-white px-6 py-8">
+      <main className="flex-1 px-4 py-6" style={{ backgroundColor: 'var(--mobile-game-area-bg)' }}>
         {/* Error indicators */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-8">
           <div className="flex space-x-2">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className={`w-3 h-3 rounded ${
+                className={`w-3 h-3 rounded-full ${
                   i <= gameState.mistakes ? 'bg-red-500' : 'bg-gray-300'
                 }`}
               />
@@ -409,29 +651,10 @@ export default function CryptographyGame() {
           </div>
         </div>
 
-        {/* Game Info */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center space-x-8 text-sm text-gray-600">
-            {gameState.timeLimit > 0 && (
-              <div>
-                <span className="font-semibold">Süre:</span> {timeLeft > 0 ? formatTime(timeLeft) : '00:00'}
-              </div>
-            )}
-            <div>
-              <span className="font-semibold">Cümle:</span> {progressiveState.currentSentenceNumber}
-            </div>
-            <div>
-              <span className="font-semibold">Harf Sayısı:</span> {letterBoxes.filter(b => !b.isSpace).length}
-            </div>
-          </div>
-        </div>
-
-        {/* Cipher Display - KELİME BÜTÜNLÜĞÜ KORUNUR */}
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-wrap justify-center items-end gap-4">
+        {/* Cipher Display - Group Words */}
+        <div className="w-full max-w-2xl mx-auto px-4">
+          <div className="flex flex-wrap justify-center items-start gap-2">
             {(() => {
-              // Kelimeleri grupla
-              const words = gameState?.originalSentence.split(' ') || [];
               const wordGroups: Array<Array<typeof letterBoxes[0]>> = [];
               let currentWord: Array<typeof letterBoxes[0]> = [];
               
@@ -441,68 +664,40 @@ export default function CryptographyGame() {
                     wordGroups.push([...currentWord]);
                     currentWord = [];
                   }
-                  wordGroups.push([box]); // Boşluk grubu
+                  wordGroups.push([box]); // Space as separate group
                 } else {
                   currentWord.push(box);
                 }
               });
               
-              // Son kelimeyi ekle
               if (currentWord.length > 0) {
                 wordGroups.push(currentWord);
               }
               
-              return wordGroups.map((group, groupIndex) => {
-                if (group[0]?.isSpace) {
-                  // Boşluk grubu
-                  return (
-                    <div key={groupIndex} className="w-8"></div>
-                  );
-                }
-                
-                // Kelime grubu - özel karakterleri ekle
-                const wordWithSpecialChars = words[group[0]?.wordIndex || 0];
-                const specialChars = wordWithSpecialChars.split('').filter((char: string) => 
-                  char === '\'' || char === '.' || char === ',' || char === '!' || char === '?' || char === ':' || char === ';' || char === '-'
-                );
-                
-                return (
-                  <div key={groupIndex} className="flex items-end gap-1">
-                    {group.map((box, boxIndex) => {
-                      // Özel karakterleri uygun yerlere ekle
-                      const elements = [];
-                      
-                      // Harf kutusu
-                      elements.push(
-                        <LetterBox
-                          key={`${groupIndex}-${boxIndex}`}
-                          letter={box.letter}
-                          number={box.number || 0}
-                          isRevealed={box.isRevealed}
-                          onClick={() => handleLetterClick(box.index)}
-                          isSelected={selectedLetterIndex === box.index}
-                          currentGuess={currentGuess}
-                          isUserRevealed={gameState?.userRevealedPositions.has(box.index) && !gameState?.initialRevealedPositions.has(box.index)}
-                          isWrongGuessEffect={wrongGuessIndex === box.index}
-                        />
+              return wordGroups.map((group, groupIndex) => (
+                <div key={groupIndex} className="flex gap-2 items-start">
+                  {group.map((box, boxIndex) => {
+                    if (box.isSpace) {
+                      return (
+                        <div key={`space-${groupIndex}-${boxIndex}`} className="w-4"></div>
                       );
-                      
-                      // Eğer kelime sonundaysa özel karakterleri ekle
-                      if (box.isWordEnd && specialChars.length > 0) {
-                        specialChars.forEach((specialChar: string, charIndex: number) => {
-                          elements.push(
-                            <span key={`special-${groupIndex}-${charIndex}`} className="text-lg font-bold text-gray-600">
-                              {specialChar}
-                            </span>
-                          );
-                        });
-                      }
-                      
-                      return elements;
-                    }).flat()}
-                  </div>
-                );
-              });
+                    }
+                    return (
+                      <LetterBox
+                        key={`${groupIndex}-${boxIndex}`}
+                        letter={box.letter}
+                        number={box.number || 0}
+                        isRevealed={box.isRevealed}
+                        onClick={() => handleLetterClick(box.index)}
+                        isSelected={selectedLetterIndex === box.index}
+                        currentGuess={currentGuess}
+                        isUserRevealed={gameState?.userRevealedPositions.has(box.index) && !gameState?.initialRevealedPositions.has(box.index)}
+                        isWrongGuessEffect={wrongGuessIndex === box.index}
+                      />
+                    );
+                  })}
+                </div>
+              ));
             })()}
           </div>
         </div>
@@ -583,17 +778,17 @@ export default function CryptographyGame() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-gray-900 px-6 py-4">
+      {/* Mobile Action Buttons */}
+      <div className="px-4 py-6 border-t" style={{ backgroundColor: 'var(--mobile-game-area-bg)', borderColor: 'var(--mobile-border)' }}>
         <div className="flex justify-center space-x-4">
           {/* Hint Button */}
           <button 
             onClick={handleHint}
             disabled={!gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints}
-            className={`px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors ${
+            className={`px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors ${
               !gameState || gameState.isGameOver || gameState.hintsUsed >= gameState.maxHints
-                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                : 'bg-orange-500 hover:bg-orange-600 text-white'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg'
             }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -605,7 +800,7 @@ export default function CryptographyGame() {
           {/* New Game Button */}
           <button
             onClick={() => setShowNewGameConfirm(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-colors shadow-lg"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -613,7 +808,16 @@ export default function CryptographyGame() {
             <span>Yeni Oyun</span>
           </button>
         </div>
-      </footer>
+      </div>
+
+      {/* Virtual Keyboard - Always Visible */}
+      <div className="px-6 py-6 border-t" style={{ backgroundColor: 'var(--mobile-game-area-bg)', borderColor: 'var(--mobile-border)' }}>
+        <VirtualKeyboard 
+          onKeyPress={handleVirtualKeyPress}
+          onDirectionPress={handleDirectionPress}
+          disabled={!gameState || gameState.isGameOver}
+        />
+      </div>
     </div>
   );
 }
